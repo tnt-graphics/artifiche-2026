@@ -143,29 +143,20 @@ if ( ! is_front_page() ) {
 		if ( empty( $plakatzuweisungen ) && $ct ) {
 			$plakatzuweisungen = get_field( 'plakatzuweisungen', $kollektionen_taxonomy . '_' . $ct->term_id );
 		}
-
-		$poster_total = 0;
-		$poster_posts = array();
-
-		if ( isset( $_COOKIE['sold_posters'] ) && $_COOKIE['sold_posters'] == true ) {
-			$sold_posters = 1;
-		} else {
-			$sold_posters = 0;
-		}
-
-		if ( $plakatzuweisungen != '' && $ct && function_exists( 'artifiche_query_kollektionen_posters' ) ) {
-			$query_result = artifiche_query_kollektionen_posters( $ct, 0, 20, $sold_posters );
-			$poster_posts = $query_result['posts'];
-			$poster_total = (int) $query_result['total'];
-		} elseif ( $plakatzuweisungen != '' ) {
+		if ( $plakatzuweisungen != '' ) {
 			$poster_numbers = explode( ';', $plakatzuweisungen );
-			$poster_total   = count( array_filter( $poster_numbers ) );
-			$metaquery      = array(
+			// print_r( $poster_numbers );
+			if ( isset( $_COOKIE['sold_posters'] ) && $_COOKIE['sold_posters'] == true ) {
+				$sold_posters = 1;
+			} else {
+				$sold_posters = 0;
+			}
+			$metaquery = array(
 				array(
 					'key' => 'neu_flag',
 				),
 			);
-			$orderby        = array(
+			$orderby   = array(
 				'meta_value' => 'DESC',
 				'date'       => 'ASC',
 			);
@@ -197,12 +188,11 @@ if ( ! is_front_page() ) {
 				'compare' => 'IN',
 			);
 
-			$poster_args['meta_query']             = $metaquery;
+			$poster_args['meta_query']           = $metaquery;
 			$poster_args['meta_query']['relation'] = 'AND';
-			$poster_posts                          = get_posts( $poster_args );
-		}
-
-		if ( ! empty( $poster_posts ) ) {
+			// print_r( $poster_args );
+			$poster_posts = get_posts( $poster_args );
+			if ( ! empty( $poster_posts ) ) {
 				foreach ( $poster_posts as $cpost ) {
 
 					$labels                 = '';
@@ -310,17 +300,22 @@ if ( ! is_front_page() ) {
 
 					wp_reset_postdata();
 				}
+			} else {
+				$posters .= '<p class="no-poster">
+					' . __( 'No posters found.', 'artifiche' ) . '
+				 </p>';
+			}
 		} else {
 			$posters .= '<p class="no-poster">
 				' . __( 'No posters found.', 'artifiche' ) . '
 			 </p>';
+
 		}
 			$html = '<div class="container"><div class="home-collection-list">' . $term_list . '<div class="posters poster_grid tax-all-list poster_grid tax-coll">'
 			. $posters .
 			'</div></div>
 			<input type="hidden" name="tax-readmore-name" id="tax-readmore-name" value="' . esc_attr( $kollektionen_taxonomy ) . '">
 			<input type="hidden" id="current-tax" name="current-tax" value="' . $current_term . '">
-			<input type="hidden" id="kollektionen-poster-total" value="' . esc_attr( $poster_total ) . '">
 			<div class="artifiche-readmore tax-loadmore">
 		
 			<a href="javascript:void(0);" id="tax-loadmore" class="outline-btn loadmore"><i class="icon-plus"></i>

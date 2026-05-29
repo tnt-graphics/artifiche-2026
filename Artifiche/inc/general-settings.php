@@ -90,11 +90,11 @@ add_action( 'widgets_init', 'artifiche_widgets_init' );
 function my_search_form( $form ) {
 
 	$form = '<form role="search" method="get" id="searchform" class="searchform" action="' . get_permalink( wc_get_page_id( 'shop' ) ) . '" >
-	<div>
-	<input type="text" placeholder="' . __( 'Suche (Titel, Künstler ...)', 'artifiche' ) . '" value="' . get_search_query() . '" name="search" id="s" />
-	<input type="submit" id="searchsubmit" value="' . esc_attr__( 'Search' ) . '" />
-	</div>
-	</form>';
+    <div>
+    <input type="text" placeholder="' . __( 'Suche (Titel, Künstler ...)', 'artifiche' ) . '" value="' . get_search_query() . '" name="search" id="s" />
+    <input type="submit" id="searchsubmit" value="' . esc_attr__( 'Search' ) . '" />
+    </div>
+    </form>';
 
 	return $form;
 }
@@ -245,7 +245,7 @@ function artifiche_custom_post_type() {
 		'show_in_nav_menus'  => true,
 		'show_tagcloud'      => true,
 	);
-	register_taxonomy( 'kollektionen', 'product', $args );
+	register_taxonomy( 'Kollektionen', 'product', $args );
 }
 	add_action( 'init', 'artifiche_custom_post_type' );
 
@@ -542,12 +542,12 @@ function get_meta_values( $key = '', $type = 'product', $status = 'publish' ) {
 	$jahrs = $wpdb->get_col(
 		$wpdb->prepare(
 			"
-		SELECT pm.meta_value FROM {$wpdb->postmeta} pm
-		LEFT JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-		WHERE pm.meta_key = %s 
-		AND p.post_status = %s 
-		AND p.post_type = %s ORDER BY pm.meta_value ASC
-	",
+        SELECT pm.meta_value FROM {$wpdb->postmeta} pm
+        LEFT JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = %s 
+        AND p.post_status = %s 
+        AND p.post_type = %s ORDER BY pm.meta_value ASC
+    ",
 			$key,
 			$status,
 			$type
@@ -952,7 +952,7 @@ function shop_filter_cat( $query ) {
 			);
 
 		}
-	} elseif ( ! is_admin() && is_tax( 'kollektionen' ) && $query->is_main_query() ) {
+	} elseif ( ! is_admin() && is_tax( 'Kollektionen' ) && $query->is_main_query() ) {
 
 		if ( isset( $_COOKIE['sold_posters'] ) && $_COOKIE['sold_posters'] == true ) {
 			$sold_posters = 1;
@@ -1227,16 +1227,16 @@ function cart_notempty_add_class() {
 	if ( is_cart() && WC()->cart->cart_contents_count != 0 ) {
 		echo '<script type="text/javascript">
 		jQuery(document).ready(function() {
-						jQuery("a.cart").addClass("count-visible"); 
-					});
-			   </script>';
+                        jQuery("a.cart").addClass("count-visible"); 
+                    });
+               </script>';
 		// exit;
 	} else {
 		echo '<script type="text/javascript">
 		jQuery(document).ready(function() {
-						jQuery("a.cart").removeClass("count-visible"); 
-					});
-			   </script>';
+                        jQuery("a.cart").removeClass("count-visible"); 
+                    });
+               </script>';
 	}
 }
 add_action( 'wp_head', 'cart_notempty_add_class' );
@@ -1287,11 +1287,11 @@ add_shortcode( 'search_widget', 'artf_search_widget' );
 function artf_search_widget() {
 
 	$form = '<form role="search" method="get" id="searchform" class="searchform mobile-search" action="' . get_permalink( wc_get_page_id( 'shop' ) ) . '" >
-	<div>
-	<input type="text" placeholder="' . __( 'Suche (Künstler, Marke, Land etc.)', 'artifiche' ) . '" value="' . get_search_query() . '" name="search" id="s" />
-	<input type="submit" id="searchsubmit" value="' . esc_attr__( 'Search' ) . '" />
-	</div>
-	</form>';
+    <div>
+    <input type="text" placeholder="' . __( 'Suche (Künstler, Marke, Land etc.)', 'artifiche' ) . '" value="' . get_search_query() . '" name="search" id="s" />
+    <input type="submit" id="searchsubmit" value="' . esc_attr__( 'Search' ) . '" />
+    </div>
+    </form>';
 
 	return $form;
 }
@@ -1620,7 +1620,7 @@ add_action( 'admin_head', 'artf_custom_admin_css' );
 function artf_custom_admin_css() {
 	echo '<style type="text/css">
 			[data-gateway_id|="ubersee"] {
-				display: none;
+			    display: none;
 			}
 		</style>';
 }
@@ -1755,7 +1755,7 @@ if ( defined( 'YITH_WCWL' ) && ! function_exists( 'yith_wcwl_enqueue_custom_scri
 				action: 'yith_wcwl_update_wishlist_count'
 			  }, function( data ) {
 				  if( data.count > 0 ){
-					if( ! $('#wishlist-items-cnt').hasClass('count') ) {
+				    if( ! $('#wishlist-items-cnt').hasClass('count') ) {
 						$('#wishlist-items-cnt').addClass('count');
 					}
 

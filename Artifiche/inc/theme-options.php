@@ -250,68 +250,204 @@ function woo_cart_but() {
 
 
 
-$pluginpath = 'contact-form-7/wp-contact-form-7.php';
+/**
+ * Contact Form 7: poster inquiry (?pid= / ?mpid=) and local mail.
+ */
+add_action( 'init', 'artifiche_store_inquiry_query_params', 1 );
 
-if ( is_plugin_active( $pluginpath ) == true ) {
+function artifiche_store_inquiry_query_params() {
+	if ( headers_sent() ) {
+		return;
+	}
 
-	// wpcf7_add_form_tag( 'custom_pid_cf7', 'wpcf7_get_pid_shortcode_handler', true );
+	$cookie_path   = COOKIEPATH ? COOKIEPATH : '/';
+	$cookie_domain = COOKIE_DOMAIN;
+	$secure        = is_ssl();
+	$httponly      = true;
+	$expires       = time() + HOUR_IN_SECONDS;
 
-	wpcf7_add_form_tag( 'artifiche_custom_pid_cf7', 'wpcf7_get_pid_shortcode_handler1', true );
+	if ( ! empty( $_GET['pid'] ) && is_numeric( $_GET['pid'] ) ) {
+		$pid = (string) absint( $_GET['pid'] );
+		setcookie( 'artifiche_inquiry_pid', $pid, $expires, $cookie_path, $cookie_domain, $secure, $httponly );
+		$_COOKIE['artifiche_inquiry_pid'] = $pid;
+	}
 
+	if ( ! empty( $_GET['mpid'] ) ) {
+		$mpid = sanitize_text_field( wp_unslash( $_GET['mpid'] ) );
+		setcookie( 'artifiche_inquiry_mpid', $mpid, $expires, $cookie_path, $cookie_domain, $secure, $httponly );
+		$_COOKIE['artifiche_inquiry_mpid'] = $mpid;
+	}
 }
 
-add_filter('wpcf7_skip_spam_check', '__return_true');
+function artifiche_preserve_inquiry_query_args( $redirect_url, $requested_url ) {
+	if ( empty( $redirect_url ) ) {
+		return $redirect_url;
+	}
 
+	foreach ( array( 'pid', 'mpid' ) as $param ) {
+		if ( ! empty( $_GET[ $param ] ) ) {
+			$redirect_url = add_query_arg( $param, sanitize_text_field( wp_unslash( $_GET[ $param ] ) ), $redirect_url );
+		}
+	}
+
+	return $redirect_url;
+}
+add_filter( 'redirect_canonical', 'artifiche_preserve_inquiry_query_args', 10, 2 );
+
+/**
+ * WPML browser-language redirect uses languageUrls without query strings — keep ?pid= / ?mpid=.
+ */
+function artifiche_wpml_append_inquiry_to_language_urls( $params ) {
+	if ( empty( $params['languageUrls'] ) || ! is_array( $params['languageUrls'] ) ) {
+		return $params;
+	}
+
+	$query_args = array();
+
+	if ( ! empty( $_GET['pid'] ) ) {
+		$query_args['pid'] = sanitize_text_field( wp_unslash( $_GET['pid'] ) );
+	}
+
+	if ( ! empty( $_GET['mpid'] ) ) {
+		$query_args['mpid'] = sanitize_text_field( wp_unslash( $_GET['mpid'] ) );
+	}
+
+	if ( empty( $query_args ) ) {
+		return $params;
+	}
+
+	foreach ( $params['languageUrls'] as $code => $url ) {
+		$params['languageUrls'][ $code ] = add_query_arg( $query_args, $url );
+	}
+
+	return $params;
+}
+add_filter( 'wpml_browser_redirect_language_params', 'artifiche_wpml_append_inquiry_to_language_urls', 10, 1 );
+
+add_action( 'wpcf7_init', 'artifiche_register_cf7_custom_tags' );
+
+function artifiche_register_cf7_custom_tags() {
+	wpcf7_add_form_tag( 'artifiche_custom_pid_cf7', 'wpcf7_get_pid_shortcode_handler1', true );
+}
+
+add_filter( 'wpcf7_skip_spam_check', '__return_true' );
+
+if ( function_exists( 'wp_get_environment_type' ) && 'local' === wp_get_environment_type() ) {
+	add_action(
+		'phpmailer_init',
+		static function ( $phpmailer ) {
+			$phpmailer->isSMTP();
+			$phpmailer->Host       = '127.0.0.1';
+			$phpmailer->Port       = 1025;
+			$phpmailer->SMTPAuth   = false;
+			$phpmailer->SMTPAutoTLS = false;
+
+			if ( empty( $phpmailer->From ) ) {
+				$from_email = get_option( 'admin_email' );
+				if ( ! $from_email || ! is_email( $from_email ) ) {
+					$host       = wp_parse_url( home_url(), PHP_URL_HOST );
+					$from_email = 'wordpress@' . ( $host ? $host : 'localhost' );
+				}
+				$phpmailer->setFrom( $from_email, get_bloginfo( 'name' ) );
+			}
+		}
+	);
+
+	add_action(
+		'wp_mail_failed',
+		static function ( $error ) {
+			if ( is_wp_error( $error ) ) {
+				error_log( 'Artifiche local wp_mail_failed: ' . $error->get_error_message() );
+			}
+		}
+	);
+}
+
+function artifiche_get_inquiry_single_pid() {
+	if ( isset( $_GET['pid'] ) && is_numeric( $_GET['pid'] ) ) {
+		return absint( $_GET['pid'] );
+	}
+
+	if ( ! empty( $_COOKIE['artifiche_inquiry_pid'] ) && is_numeric( $_COOKIE['artifiche_inquiry_pid'] ) ) {
+		return absint( $_COOKIE['artifiche_inquiry_pid'] );
+	}
+
+	return 0;
+}
+
+function artifiche_get_inquiry_mpid_list() {
+	if ( ! empty( $_GET['mpid'] ) ) {
+		return sanitize_text_field( wp_unslash( $_GET['mpid'] ) );
+	}
+
+	if ( ! empty( $_COOKIE['artifiche_inquiry_mpid'] ) ) {
+		return sanitize_text_field( wp_unslash( $_COOKIE['artifiche_inquiry_mpid'] ) );
+	}
+
+	return '';
+}
+
+function artifiche_build_poster_inquiry_content( $product_id ) {
+	$product_id = absint( $product_id );
+
+	if ( ! $product_id || 'product' !== get_post_type( $product_id ) ) {
+		return '';
+	}
+
+	$poster_id    = get_post_meta( $product_id, 'plakatnummer', true );
+	$poster_url   = get_permalink( $product_id );
+	$poster_title = get_the_title( $product_id );
+
+	return 'Poster ID: ' . $poster_id . '&#10;Poster Url: ' . $poster_url . '&#10;Poster Title: ' . $poster_title;
+}
 
 function wpcf7_get_pid_shortcode_handler1( $tag ) {
-
 	$name            = $tag['name'];
-
 	$poster_contents = '';
-
 	$html            = '';
 
-	if ( isset( $_GET['pid'] ) ) {
+	$pid_val = artifiche_get_inquiry_single_pid();
 
+	if ( $pid_val ) {
+		$poster_contents = artifiche_build_poster_inquiry_content( $pid_val );
+	} else {
+		$mpid_raw = artifiche_get_inquiry_mpid_list();
 
-		$pid_val          = $_GET['pid'];
+		if ( $mpid_raw ) {
+			$mpid_val_arr = array_filter( array_map( 'absint', explode( ',', $mpid_raw ) ) );
 
-		$poster_id        = get_post_meta( $pid_val, 'plakatnummer', true );
+			foreach ( $mpid_val_arr as $mpid_val ) {
+				$line = artifiche_build_poster_inquiry_content( $mpid_val );
 
-		$poster_url       = get_permalink( $pid_val );
-
-		$poster_title     = get_the_title( $pid_val );
-
-		$poster_contents .= '&#10;';
-
-		$poster_contents .= 'Poster ID: ' . $poster_id . '&#10;Poster Url: ' . $poster_url . '&#10;Poster Title: ' . $poster_title;
-
-		$html             = '<textarea name="' . $name . '" class="hidden-textarea">' . $poster_contents . '</textarea>';
-
-	} elseif ( isset( $_GET['mpid'] ) ) {
-
-		$mpid_val_arr = explode( ',', $_GET['mpid'] );
-
-		foreach ( $mpid_val_arr as $mpid_val_arrkey => $mpid_val_arrvalue ) {
-
-			$poster_id        = get_post_meta( $mpid_val_arrvalue, 'plakatnummer', true );
-
-			$poster_url       = get_permalink( $mpid_val_arrvalue );
-
-			$poster_title     = get_the_title( $mpid_val_arrvalue );
-
-			$poster_contents .= '&#10;';
-
-			$poster_contents .= 'Poster ID: ' . $poster_id . '&#10;Poster Url: ' . $poster_url . '&#10;Poster Title: ' . $poster_title . '&#10;&#10;';
-
+				if ( $line ) {
+					$poster_contents .= ( $poster_contents ? '&#10;&#10;' : '&#10;' ) . $line;
+				}
+			}
 		}
-
-		$html = '<textarea name="' . $name . '" class="hidden-textarea">' . $poster_contents . '</textarea>';
-
 	}
-	
-	return $html;
 
+	if ( $poster_contents ) {
+		$html = '<textarea name="' . esc_attr( $name ) . '" class="hidden-textarea">' . $poster_contents . '</textarea>';
+	}
+
+	return $html;
+}
+
+add_action( 'wpcf7_mail_sent', 'artifiche_clear_inquiry_cookies' );
+
+function artifiche_clear_inquiry_cookies( $contact_form ) {
+	if ( headers_sent() ) {
+		return;
+	}
+
+	$cookie_path   = COOKIEPATH ? COOKIEPATH : '/';
+	$cookie_domain = COOKIE_DOMAIN;
+	$secure        = is_ssl();
+	$httponly      = true;
+	$past          = time() - YEAR_IN_SECONDS;
+
+	setcookie( 'artifiche_inquiry_pid', '', $past, $cookie_path, $cookie_domain, $secure, $httponly );
+	setcookie( 'artifiche_inquiry_mpid', '', $past, $cookie_path, $cookie_domain, $secure, $httponly );
 }
 
 

@@ -7,8 +7,6 @@
  * 2.0 - Enqeue JavaScripts
  * ----------------------------------------------------------------------------
  */
- 
- 
 function artifiche_theme_scripts() {
 	/**
 		 * 1.0 - Enqeue stylesheets

@@ -1,5 +1,11 @@
 jQuery(document).ready(function() {
 
+    // Check for open-filter parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('open-filter')) {
+        openArtificheFilter();
+    }
+
     jQuery('.bar').on('click', function(e) {
         e.preventDefault();
         jQuery('header').addClass('side-nav_active');
@@ -19,6 +25,25 @@ jQuery(document).ready(function() {
     //     }
     // });
     jQuery('.filter-fields').hide();
+
+    // Function to open filter that can be called from anywhere
+    window.openArtificheFilter = function() {
+        var $filter = jQuery('#artifiche-filter');
+        $filter.addClass('active');
+        $filter.parent('.searchbox').addClass('filter-active');
+        $filter.parents('form').find('.filter-fields').fadeIn('slow');
+        
+        // Scroll to the filter container
+        jQuery('html, body').animate({
+            scrollTop: jQuery('#artifiche-filter-container').offset().top
+        }, 100);
+    }
+
+    // Handle links with class 'open-filter'
+    jQuery('.open-filter').on('click', function(e) {
+        e.preventDefault();
+        openArtificheFilter();
+    });
 
     jQuery('#artifiche-filter').on('click', function() {
         jQuery(this).toggleClass('active');
@@ -106,6 +131,25 @@ jQuery(document).ready(function() {
     });
     if (jQuery(window).width() > 767) {
         if (jQuery('.js_select').length) {
+            jQuery('.cat-filter .js_select option').each(function() {
+                var val = jQuery(this).val();
+                if (!val || val === '1') {
+                    return;
+                }
+                if (val.indexOf('taxonomy=kollektionen') === -1 && val.indexOf('taxonomy=Kollektionen') === -1) {
+                    return;
+                }
+                var match = val.match(/[?&]term=([^&]+)/);
+                if (!match) {
+                    return;
+                }
+                var slug = decodeURIComponent(match[1].replace(/\+/g, ' '));
+                var path = '/kollektionen/' + slug + '/';
+                if (window.location.pathname.indexOf('/en/') === 0) {
+                    path = '/en/collections/' + slug + '/';
+                }
+                jQuery(this).val(window.location.origin + path);
+            });
             jQuery(".js_select").each(function(index) {
                 jQuery(this).select2({
                     allowClear: true,
@@ -423,7 +467,7 @@ jQuery(document).ready(function ($) {
       var $submenu = $(this).siblings(".sub-menu");
   
       if ($submenu.length) {
-          e.preventDefault();  // Prevent navigation if there’s a submenu
+          e.preventDefault();  // Prevent navigation if there's a submenu
   
           // Close other open submenus on the same level
           $(this).closest(".sub-menu").find(".sub-menu").not($submenu).removeClass("activesub");
@@ -436,7 +480,7 @@ jQuery(document).ready(function ($) {
 
  
  $('.menu-container').click(function () {
-     $(".menu-mega-menu-container").toggleClass('active');
+     $(".menu-mega-menu-container, .mobile-lang-switcher, .mobile-search-container").toggleClass('active');
  });
  
  $('.mega-grid a[href]').on('click', function(e) {

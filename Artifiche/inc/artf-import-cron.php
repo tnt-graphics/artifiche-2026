@@ -236,7 +236,7 @@ function artf_trigger_en_import( $import_id ) {
 
 
 
-		$trigger_url = site_url() . '/wp-cron.php?import_key=1UhjOBTd&import_id=154&action=trigger';
+		$trigger_url = site_url() . '/wp-cron.php?import_key=1UhjOBTd&import_id=152&action=trigger';
 
 		$response    = wp_remote_get( $trigger_url );
 
@@ -248,7 +248,7 @@ function artf_trigger_en_import( $import_id ) {
 
 
 
-	if ( $import_id == 154 ) { // Kollektionen_EN.
+	if ( $import_id == 152 ) { // Kollektionen_EN.
 
 
 

@@ -54,37 +54,26 @@ if ( ! is_front_page() ) {
 
 	</div>
 	<?php
-		$queried_object = function_exists( 'artifiche_get_kollektionen_queried_term' )
-			? artifiche_get_kollektionen_queried_term()
-			: get_queried_object();
-		if ( ! $queried_object instanceof WP_Term ) {
-			$queried_object = null;
-		}
-		$kollektionen_taxonomy = artifiche_get_kollektionen_taxonomy_slug();
-		if ( $queried_object instanceof WP_Term && artifiche_is_kollektionen_taxonomy( $queried_object->taxonomy ) ) {
-			$kollektionen_taxonomy = $queried_object->taxonomy;
-		}
-		$current_term = $queried_object instanceof WP_Term ? (int) $queried_object->term_id : 0;
+		$queried_object        = get_queried_object();
+		$kollektionen_taxonomy = ( $queried_object && ! empty( $queried_object->taxonomy ) ) ? $queried_object->taxonomy : 'kollektionen';
+		$current_term          = $queried_object->term_id;
+		$termargs              = array(
+			'taxonomy'   => $kollektionen_taxonomy,
+			'hide_empty' => false,
+			'orderby'    => 'name',
+			'order'      => 'ASC',
+		);
 		$posters      = '';
 		$labels       = '';
 		$poster_title = '';
 
-		$termslists = function_exists( 'artifiche_get_kollektionen_terms' )
-			? artifiche_get_kollektionen_terms()
-			: get_terms(
-				array(
-					'taxonomy'   => array( $kollektionen_taxonomy ),
-					'field'      => 'term_id',
-					'orderby'    => 'include',
-					'hide_empty' => false,
-				)
-			);
+		$termslists = get_terms( $termargs );
 		if ( is_wp_error( $termslists ) ) {
 			$termslists = array();
 		}
 		$i                       = 1;
 		$plakatkollektionen_link = get_permalink( get_field( 'set_plakatkollektionen_page', 'option' ) );
-		$term_options            = '<option value="' . esc_url( $plakatkollektionen_link ) . '">' . esc_html__( 'Alle Kollektionen', 'artifiche' ) . '</option>';
+		$term_options            = '<option selected="selected" value="' . $plakatkollektionen_link . '">' . __( 'Alle Kollektionen' ) . '</option>';
 		$current_term_id         = '';
 		if ( ! empty( $termslists ) ) {
 			foreach ( $termslists as $termone ) :
@@ -94,21 +83,8 @@ if ( ! is_front_page() ) {
 				} else {
 					$selected = '';
 				}
-				$term_link = '';
-				if ( function_exists( 'artifiche_build_kollektionen_term_path' ) ) {
-					$term_link = artifiche_build_kollektionen_term_path( $termone );
-				}
-				if ( ! $term_link ) {
-					$slug         = $termone->slug;
-					$lang         = apply_filters( 'wpml_current_language', null );
-					$default_lang = apply_filters( 'wpml_default_language', null );
-					if ( $lang && $default_lang && $lang !== $default_lang ) {
-						$term_link = home_url( user_trailingslashit( $lang . '/collections/' . $slug ) );
-					} else {
-						$term_link = home_url( user_trailingslashit( 'kollektionen/' . $slug ) );
-					}
-				}
-				if ( ! $term_link ) {
+				$term_link = get_term_link( $termone );
+				if ( is_wp_error( $term_link ) ) {
 					continue;
 				}
 				$term_options .= '<option value="' . esc_url( $term_link ) . '" ' . $selected . '>' . esc_html( $termone->name ) . '</option>';
@@ -132,9 +108,7 @@ if ( ! is_front_page() ) {
 			<input name="csold_posters" class="reload" ' . $sold_posters . ' type="checkbox" value="' . $sold_poster_val . '"> <span class="checkmark"></span>
 			</label></div>';
 
-		$ct = function_exists( 'artifiche_get_kollektionen_term_by_id' )
-			? artifiche_get_kollektionen_term_by_id( $current_term, $kollektionen_taxonomy )
-			: get_term_by( 'term_id', $current_term, $kollektionen_taxonomy );
+		$ct = get_term_by( 'term_id', $current_term, $kollektionen_taxonomy );
 		if ( ! $ct && $queried_object instanceof WP_Term ) {
 			$ct = $queried_object;
 		}
@@ -143,29 +117,20 @@ if ( ! is_front_page() ) {
 		if ( empty( $plakatzuweisungen ) && $ct ) {
 			$plakatzuweisungen = get_field( 'plakatzuweisungen', $kollektionen_taxonomy . '_' . $ct->term_id );
 		}
-
-		$poster_total = 0;
-		$poster_posts = array();
-
-		if ( isset( $_COOKIE['sold_posters'] ) && $_COOKIE['sold_posters'] == true ) {
-			$sold_posters = 1;
-		} else {
-			$sold_posters = 0;
-		}
-
-		if ( $plakatzuweisungen != '' && $ct && function_exists( 'artifiche_query_kollektionen_posters' ) ) {
-			$query_result = artifiche_query_kollektionen_posters( $ct, 0, 20, $sold_posters );
-			$poster_posts = $query_result['posts'];
-			$poster_total = (int) $query_result['total'];
-		} elseif ( $plakatzuweisungen != '' ) {
+		if ( $plakatzuweisungen != '' ) {
 			$poster_numbers = explode( ';', $plakatzuweisungen );
-			$poster_total   = count( array_filter( $poster_numbers ) );
-			$metaquery      = array(
+			// print_r( $poster_numbers );
+			if ( isset( $_COOKIE['sold_posters'] ) && $_COOKIE['sold_posters'] == true ) {
+				$sold_posters = 1;
+			} else {
+				$sold_posters = 0;
+			}
+			$metaquery = array(
 				array(
 					'key' => 'neu_flag',
 				),
 			);
-			$orderby        = array(
+			$orderby   = array(
 				'meta_value' => 'DESC',
 				'date'       => 'ASC',
 			);
@@ -197,12 +162,11 @@ if ( ! is_front_page() ) {
 				'compare' => 'IN',
 			);
 
-			$poster_args['meta_query']             = $metaquery;
+			$poster_args['meta_query']           = $metaquery;
 			$poster_args['meta_query']['relation'] = 'AND';
-			$poster_posts                          = get_posts( $poster_args );
-		}
-
-		if ( ! empty( $poster_posts ) ) {
+			// print_r( $poster_args );
+			$poster_posts = get_posts( $poster_args );
+			if ( ! empty( $poster_posts ) ) {
 				foreach ( $poster_posts as $cpost ) {
 
 					$labels                 = '';
@@ -310,17 +274,22 @@ if ( ! is_front_page() ) {
 
 					wp_reset_postdata();
 				}
+			} else {
+				$posters .= '<p class="no-poster">
+					' . __( 'No posters found.', 'artifiche' ) . '
+				 </p>';
+			}
 		} else {
 			$posters .= '<p class="no-poster">
 				' . __( 'No posters found.', 'artifiche' ) . '
 			 </p>';
+
 		}
 			$html = '<div class="container"><div class="home-collection-list">' . $term_list . '<div class="posters poster_grid tax-all-list poster_grid tax-coll">'
 			. $posters .
 			'</div></div>
 			<input type="hidden" name="tax-readmore-name" id="tax-readmore-name" value="' . esc_attr( $kollektionen_taxonomy ) . '">
 			<input type="hidden" id="current-tax" name="current-tax" value="' . $current_term . '">
-			<input type="hidden" id="kollektionen-poster-total" value="' . esc_attr( $poster_total ) . '">
 			<div class="artifiche-readmore tax-loadmore">
 		
 			<a href="javascript:void(0);" id="tax-loadmore" class="outline-btn loadmore"><i class="icon-plus"></i>

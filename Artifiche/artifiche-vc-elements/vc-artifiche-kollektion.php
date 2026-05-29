@@ -29,7 +29,7 @@ function artifiche_kollektion_list_render( $atts, $content = null ) {
 	$html = '';
 	// Display all categories
 	$termargs = array(
-		'taxonomy'         => array( 'kollektionen' ), // taxonomy name
+		'taxonomy'         => array( 'Kollektionen' ), // taxonomy name
 		'field'            => 'term_id',
 		// 'offset'           => 1,
 		'number'           => 5,

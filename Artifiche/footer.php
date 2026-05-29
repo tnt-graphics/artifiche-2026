@@ -61,7 +61,7 @@
 <script src="<?php echo get_template_directory_uri() . '/js/select2.min.js'; ?>"></script>
 <script src="<?php echo get_template_directory_uri() . '/js/de.js'; ?>"></script>
 <script src="<?php echo get_template_directory_uri() . '/js/fastClick.js'; ?>"></script>
-<script src="<?php echo get_template_directory_uri() . '/js/custom.js?ver=' . filemtime(get_template_directory() . '/js/custom.js'); ?>"></script>
+<script src="<?php echo get_template_directory_uri() . '/js/custom.js'; ?>"></script>
 <script src="<?php echo get_template_directory_uri() . '/js/admin.js'; ?>"></script>
 <script>
 		var getLangCode = '<?php echo apply_filters( 'wpml_current_language', null ); ?>';

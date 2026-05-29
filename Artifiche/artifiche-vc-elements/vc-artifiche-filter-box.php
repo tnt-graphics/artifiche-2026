@@ -287,6 +287,6 @@ switch ( $selected_price ) {
 		<input type="hidden" name="site_url" class="site_url" value="'.site_url() .'">
 	</div>';
 	
-	$html = '<div id="artifiche-filter-container" class="artifiche-filterbox '.$outer_class.'">' . $filter_contents . '</div>';
+	$html = '<div class="artifiche-filterbox '.$outer_class.'">' . $filter_contents . '</div>';
 	return $html;
 }

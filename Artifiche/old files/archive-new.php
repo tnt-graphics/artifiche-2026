@@ -7,9 +7,7 @@
  * @package Artifiche
  */
 
-// Safety net: EN /collections/ URLs may hit archive.php instead of the taxonomy template.
-// Uses URL-aware helper from functions.php (not is_tax() alone).
-if ( function_exists( 'artifiche_should_use_kollektionen_template' ) && artifiche_should_use_kollektionen_template() ) {
+if ( is_tax( array( 'kollektionen', 'Kollektionen' ) ) ) {
 	$kollektionen_template = get_template_directory() . '/woocommerce/taxonomy-kollektionen.php';
 	if ( file_exists( $kollektionen_template ) ) {
 		load_template( $kollektionen_template );

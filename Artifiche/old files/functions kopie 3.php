@@ -436,162 +436,6 @@ function artifiche_is_kollektionen_taxonomy( $taxonomy ) {
 }
 
 /**
- * Registered Kollektionen taxonomy slug on this site (Kollektionen on live, kollektionen locally).
- */
-function artifiche_get_kollektionen_taxonomy_slug() {
-	static $slug = null;
-
-	if ( null !== $slug ) {
-		return $slug;
-	}
-
-	foreach ( artifiche_get_kollektionen_taxonomies() as $taxonomy ) {
-		if ( taxonomy_exists( $taxonomy ) ) {
-			$slug = $taxonomy;
-			return $slug;
-		}
-	}
-
-	$slug = 'kollektionen';
-
-	return $slug;
-}
-
-/**
- * List Kollektionen terms; tries both taxonomy slugs and falls back to DB lookup.
- */
-function artifiche_get_kollektionen_terms( $args = array() ) {
-	$registered = array();
-	foreach ( artifiche_get_kollektionen_taxonomies() as $taxonomy ) {
-		if ( taxonomy_exists( $taxonomy ) ) {
-			$registered[] = $taxonomy;
-		}
-	}
-	if ( empty( $registered ) ) {
-		$registered = artifiche_get_kollektionen_taxonomies();
-	}
-
-	// Same pattern as plakatkollektionen VC dropdown (known working on live).
-	foreach ( $registered as $taxonomy ) {
-		$terms = get_terms(
-			array(
-				'taxonomy'   => array( $taxonomy ),
-				'field'      => 'term_id',
-				'orderby'    => 'include',
-				'hide_empty' => false,
-			)
-		);
-		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
-			return $terms;
-		}
-	}
-
-	$defaults = array(
-		'hide_empty'       => false,
-		'orderby'          => 'name',
-		'order'            => 'ASC',
-		'suppress_filters' => false,
-	);
-	$args = wp_parse_args( $args, $defaults );
-
-	foreach ( $registered as $taxonomy ) {
-		$term_args             = $args;
-		$term_args['taxonomy'] = $taxonomy;
-		$terms                 = get_terms( $term_args );
-
-		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
-			return $terms;
-		}
-
-		$term_args['suppress_filters'] = true;
-		$terms                         = get_terms( $term_args );
-		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
-			return $terms;
-		}
-	}
-
-	global $wpdb;
-
-	$placeholders = implode( ',', array_fill( 0, count( $registered ), '%s' ) );
-	$rows         = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT t.term_id, tt.taxonomy
-			FROM {$wpdb->terms} t
-			INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
-			WHERE tt.taxonomy IN ($placeholders)
-			ORDER BY t.name ASC",
-			...$registered
-		)
-	);
-
-	$terms = array();
-	foreach ( (array) $rows as $row ) {
-		$term = get_term( (int) $row->term_id, $row->taxonomy );
-		if ( $term instanceof WP_Term && ! is_wp_error( $term ) ) {
-			$terms[] = $term;
-		}
-	}
-
-	return $terms;
-}
-
-/**
- * Term link for Kollektionen dropdown; falls back when query_var / rewrites fail on tax archives.
- */
-function artifiche_get_kollektionen_term_link( $term ) {
-	if ( ! $term instanceof WP_Term ) {
-		return '';
-	}
-
-	$link = get_term_link( $term );
-	if ( ! is_wp_error( $link ) ) {
-		return $link;
-	}
-
-	$taxonomy = $term->taxonomy;
-	if ( ! taxonomy_exists( $taxonomy ) ) {
-		$taxonomy = artifiche_get_kollektionen_taxonomy_slug();
-	}
-
-	return home_url( '/?taxonomy=' . rawurlencode( $taxonomy ) . '&term=' . rawurlencode( $term->slug ) );
-}
-
-/**
- * Resolve a Kollektionen term by ID regardless of K/k taxonomy slug.
- */
-function artifiche_get_kollektionen_term_by_id( $term_id, $preferred_taxonomy = '' ) {
-	$term_id = (int) $term_id;
-	if ( ! $term_id ) {
-		return null;
-	}
-
-	if ( $preferred_taxonomy && artifiche_is_kollektionen_taxonomy( $preferred_taxonomy ) ) {
-		$term = get_term_by( 'term_id', $term_id, $preferred_taxonomy );
-		if ( $term instanceof WP_Term && ! is_wp_error( $term ) ) {
-			return $term;
-		}
-	}
-
-	foreach ( artifiche_get_kollektionen_taxonomies() as $taxonomy ) {
-		if ( ! taxonomy_exists( $taxonomy ) ) {
-			continue;
-		}
-
-		$term = get_term_by( 'term_id', $term_id, $taxonomy );
-		if ( $term instanceof WP_Term && ! is_wp_error( $term ) ) {
-			return $term;
-		}
-	}
-
-	$term = get_term( $term_id );
-	if ( $term instanceof WP_Term && ! is_wp_error( $term ) && artifiche_is_kollektionen_taxonomy( $term->taxonomy ) ) {
-		return $term;
-	}
-
-	return null;
-}
-
-/**
  * Resolve collection term from URL when WPML leaves a generic archive query (EN /collections/…).
  */
 function artifiche_kollektionen_term_from_request() {
@@ -626,40 +470,18 @@ function artifiche_kollektionen_term_from_request() {
 	if ( ! ( $term instanceof WP_Term ) ) {
 		global $wpdb;
 
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT t.term_id, tt.taxonomy
-				FROM {$wpdb->terms} t
-				INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
-				WHERE t.slug = %s AND tt.taxonomy IN (%s, %s)
-				LIMIT 1",
-				$slug,
-				'kollektionen',
-				'Kollektionen'
-			)
-		);
+		$taxonomies   = artifiche_get_kollektionen_taxonomies();
+		$placeholders = implode( ',', array_fill( 0, count( $taxonomies ), '%s' ) );
+		$sql          = "SELECT t.term_id, tt.taxonomy
+			FROM {$wpdb->terms} t
+			INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
+			WHERE t.slug = %s AND tt.taxonomy IN ($placeholders)
+			LIMIT 1";
+
+		$row = $wpdb->get_row( $wpdb->prepare( $sql, array_merge( array( $slug ), $taxonomies ) ) );
 
 		if ( $row ) {
 			$term = get_term( (int) $row->term_id, $row->taxonomy );
-		}
-	}
-
-	// Last resort: resolve from default language (DE term with no EN WPML entry).
-	if ( ! ( $term instanceof WP_Term ) && has_filter( 'wpml_current_language' ) ) {
-		$default_lang = apply_filters( 'wpml_default_language', null );
-		$current_lang = apply_filters( 'wpml_current_language', null );
-
-		if ( $default_lang && $current_lang && $default_lang !== $current_lang && function_exists( 'do_action' ) ) {
-			do_action( 'wpml_switch_language', $default_lang );
-
-			foreach ( artifiche_get_kollektionen_taxonomies() as $taxonomy ) {
-				$term = get_term_by( 'slug', $slug, $taxonomy );
-				if ( $term instanceof WP_Term ) {
-					break;
-				}
-			}
-
-			do_action( 'wpml_switch_language', $current_lang );
 		}
 	}
 
