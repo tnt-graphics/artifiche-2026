@@ -1,0 +1,31 @@
+.admin-missing-img {
+    overflow-x: auto;
+}
+
+.admin-missing-img table {
+    background: #F7F7F7;
+    font-size: 16px;
+    color: #333;
+    max-width: 100%;
+}
+
+.admin-missing-img table td,
+.admin-missing-img table th {
+    padding: 10px 20px;
+}
+
+.admin-missing-img table th {
+    background-color: #e9ecef;
+    font-weight: 600;
+}
+
+.admin-missing-img table a {
+    color: #003968;
+}
+
+.no-poster-missing h1 {
+    font-size: 36px;
+    line-height: 44px;
+    text-transform: uppercase;
+    color: #333;
+}
