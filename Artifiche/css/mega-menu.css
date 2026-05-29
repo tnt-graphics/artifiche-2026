@@ -597,6 +597,7 @@ a.lrg-logo img, a.sml-logo img {
       position: absolute;
       top: 100px;
       z-index: 2;
+      display: none;
   }
   
   .mobile-lang-switcher a {
@@ -618,6 +619,10 @@ a.lrg-logo img, a.sml-logo img {
   
   .mobile-lang-switcher a.current-lang {
     border-bottom: 1px solid var(--icon-blue);
+  }
+
+  .mobile-lang-switcher.active {
+    display: block;
   }
   
   a.lrg-logo img, a.sml-logo img {
@@ -690,7 +695,7 @@ a.lrg-logo img, a.sml-logo img {
 }
 
 .menu-mega-menu-container {
- /* display: none;*/
+ display: none;
  background-color: var(--bg-light-blue);
  margin-top: -11px;
  width: 100vw;
@@ -699,7 +704,7 @@ a.lrg-logo img, a.sml-logo img {
  padding-top: 80px;
 }
 
-.menu-mega-menu-container.active,  .search-container.mobile {
+.menu-mega-menu-container.active, .mobile-search-container.active {
   display: block;
 }
 
@@ -707,7 +712,7 @@ a.lrg-logo img, a.sml-logo img {
 .mobile-search-container {
     width: calc(100% - 20px);
     margin-left: 0;
-    display: block;
+    display: none;
     height: 50px;
     margin-top: -140px;
     z-index: 10;
