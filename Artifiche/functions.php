@@ -474,31 +474,6 @@ function artifiche_kollektionen_register_taxonomy_alias() {
 add_action( 'init', 'artifiche_kollektionen_register_taxonomy_alias', 99 );
 
 /**
- * Old admin bookmarks used taxonomy=Kollektionen; DB and registration use kollektionen.
- */
-function artifiche_kollektionen_admin_taxonomy_redirect() {
-	if ( ! is_admin() || empty( $_GET['taxonomy'] ) ) {
-		return;
-	}
-
-	$taxonomy = wp_unslash( $_GET['taxonomy'] );
-	if ( 'Kollektionen' !== $taxonomy ) {
-		return;
-	}
-
-	$redirect_args = array(
-		'taxonomy' => 'kollektionen',
-	);
-	if ( ! empty( $_GET['post_type'] ) ) {
-		$redirect_args['post_type'] = sanitize_key( wp_unslash( $_GET['post_type'] ) );
-	}
-
-	wp_safe_redirect( add_query_arg( $redirect_args, admin_url( 'edit-tags.php' ) ) );
-	exit;
-}
-add_action( 'admin_init', 'artifiche_kollektionen_admin_taxonomy_redirect', 1 );
-
-/**
  * Skip RSS feed link markup when Kollektionen slug is not registered (avoids wp_head warnings).
  */
 function artifiche_kollektionen_disable_broken_tax_feed( $show ) {

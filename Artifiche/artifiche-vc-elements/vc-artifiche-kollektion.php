@@ -29,16 +29,18 @@ function artifiche_kollektion_list_render( $atts, $content = null ) {
 	$html = '';
 	// Display all categories
 	$termargs = array(
-		'taxonomy'         => array( 'kollektionen' ), // taxonomy name
+		'taxonomy'         => taxonomy_exists( 'Kollektionen' ) ? 'Kollektionen' : 'kollektionen',
 		'field'            => 'term_id',
-		// 'offset'           => 1,
 		'number'           => 5,
 		'suppress_filters' => false,
-		'orderby'          => 'date',
+		'orderby'          => 'term_id',
 		'order'            => 'ASC',
 	);
 	$recent_posts = '';
 	$termslists   = get_terms( $termargs );
+	if ( is_wp_error( $termslists ) ) {
+		$termslists = array();
+	}
 
 	foreach ( $termslists as $term ) :
 

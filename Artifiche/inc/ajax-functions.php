@@ -16,179 +16,95 @@ add_action( 'wp_ajax_kollektion_load_more', 'kollektion_load_more' );
 
 function kollektion_load_more() {
 
-	$count = $_POST['count'];
+	$count = isset( $_POST['count'] ) ? (int) $_POST['count'] : 0;
 
-
-
-	$orderby = array(
-
-		//'meta_value' => 'DESC',
-
-		'date'       => 'ASC',
-
-	);
+	if ( function_exists( 'artifiche_get_kollektionen_taxonomy_slug' ) ) {
+		$taxonomy = artifiche_get_kollektionen_taxonomy_slug();
+	} elseif ( taxonomy_exists( 'Kollektionen' ) ) {
+		$taxonomy = 'Kollektionen';
+	} else {
+		$taxonomy = 'kollektionen';
+	}
 
 	$termargs = array(
-
-		'taxonomy'         => array( 'kollektionen' ), // taxonomy name
-
-		'field'            => 'term_id',
-
+		'taxonomy'         => $taxonomy,
+		'hide_empty'       => false,
 		'offset'           => $count,
-
 		'number'           => 5,
-
 		'suppress_filters' => false,
-
-		'orderby'          => 'date',
-
+		'orderby'          => 'term_id',
 		'order'            => 'ASC',
-
-		// 'meta_query'       => array(
-
-		// array(
-
-		// 'key' => 'neu_flag',
-
-		// ),
-
-		// ),
-
 	);
 
 	$recent_posts = '';
+	$termslists   = get_terms( $termargs );
 
-	// var_dump($termargs);
-
-	// die;
-
-	$termslists = get_terms( $termargs );
-
-	// var_dump( $termslists );
-
-	// die;
+	if ( is_wp_error( $termslists ) ) {
+		$termslists = array();
+	}
 
 	if ( ! empty( $termslists ) ) {
 
+		foreach ( $termslists as $term ) {
 
-
-		foreach ( $termslists as $term ) :
-
-			
-
-			$sale_flag = get_post_meta( $spost->ID, 'sale_flag', true );
-
-
-
-			$content = wp_trim_words( $term->description, 15 );
-
-			$recent_posts .= '			
-
-			<div class="collection-item">
-
-				<div class="collection-content">
-
-					<h2><a href="' . get_term_link( $term ) . '">' . $term->name . '</a></h2>
-
-					<p>' . $content . '</p>
-
-					<a href="' . get_term_link( $term ) . '" class="common-link">' . __( 'Zur Kollektion', 'artifiche' ) . '</a>
-
-				</div>
-
-				<div class="collection-img">';
-
-				$i         = 1;
-
-				$image     = get_field( 'plakatauswahl', $term );
-
-			if ( $image != '' ) {
-
-				$poster_array = explode( ';', $image );// print_r($poster_array );
-
-				$pacount = count($poster_array)-1;
-
-				for ( $i = 0; $i < $pacount; $i++ ) {
-
-					// if( $poster == '' ) return;
-
-					if ( $i == 0 ) {
-
-
-
-						$w = '210px';
-
-						$h = '336px';
-
-					} elseif ( $i == 1 ) {
-
-						$w = '260px';
-
-						$h = '376px';
-
-					} else {
-
-						$w = '210px';
-
-						$h = '298px';
-
-					}
-
-					$poster_args = array(
-
-						'post_type'      => 'product',
-
-						// 'posts_per_page' => -1,
-
-						'meta_key'       => 'plakatnummer',
-
-						'meta_value'     => $poster_array[ $i ],
-
-					);
-
-
-
-					$poster_id = get_posts( $poster_args );
-
-					$posterid     = ( isset( $poster_id[0]->ID ) ) ? $poster_id[0]->ID : '10989';
-
-					// echo $poster_id[0]['ID'];
-
-					$alt_text      = artf_get_alt_text( $posterid );
-
-					$recent_posts .= '<a href="' . get_permalink( $posterid ) . '"><img  src="' . site_url() . '/artifiche-images/posters_large/' . $poster_array[ $i ] . '.jpg" alt="' . $alt_text . '" width="' . $w . '" height="' . $h . '" /></a>';
-
-					// $i++;
-
-
-
-				}
-
+			if ( function_exists( 'artifiche_get_kollektionen_term_link' ) ) {
+				$term_link = artifiche_get_kollektionen_term_link( $term );
+			} else {
+				$term_link = get_term_link( $term );
+			}
+			if ( is_wp_error( $term_link ) || ! $term_link ) {
+				$term_link = '#';
 			}
 
-				$recent_posts .= '</div><a href="' . get_term_link( $term ) . '" class="mobile-only common-link">' . __( 'Zur kollektion', 'artifiche' ) . '</a>
+			$content = wp_trim_words( $term->description, 15 );
+			$recent_posts .= '
+			<div class="collection-item">
+				<div class="collection-content">
+					<h2><a href="' . esc_url( $term_link ) . '">' . esc_html( $term->name ) . '</a></h2>
+					<p>' . $content . '</p>
+					<a href="' . esc_url( $term_link ) . '" class="common-link">' . __( 'Zur Kollektion', 'artifiche' ) . '</a>
+				</div>
+				<div class="collection-img">';
+				$i     = 1;
+				$image = get_field( 'plakatauswahl', $term );
+			if ( $image != '' ) {
+				$poster_array = explode( ';', $image );
+				$pacount      = count( $poster_array ) - 1;
+				for ( $i = 0; $i < $pacount; $i++ ) {
+					if ( $i == 0 ) {
+						$w = '210px';
+						$h = '336px';
+					} elseif ( $i == 1 ) {
+						$w = '260px';
+						$h = '376px';
+					} else {
+						$w = '210px';
+						$h = '298px';
+					}
+					$poster_args = array(
+						'post_type'  => 'product',
+						'meta_key'   => 'plakatnummer',
+						'meta_value' => $poster_array[ $i ],
+					);
 
+					$poster_id = get_posts( $poster_args );
+					$posterid  = ( isset( $poster_id[0]->ID ) ) ? $poster_id[0]->ID : 0;
+					$alt_text  = artf_get_alt_text( $posterid );
+					$recent_posts .= '<a href="' . esc_url( get_permalink( $posterid ) ) . '"><img  src="' . esc_url( site_url() . '/artifiche-images/posters_large/' . $poster_array[ $i ] . '.jpg' ) . '" alt="' . esc_attr( $alt_text ) . '" width="' . esc_attr( $w ) . '" height="' . esc_attr( $h ) . '" /></a>';
+				}
+			}
+				$recent_posts .= '</div><a href="' . esc_url( $term_link ) . '" class="mobile-only common-link">' . __( 'Zur Kollektion', 'artifiche' ) . '</a>
 		</div>';
-
-			$i++;
-
-
-
-			   endforeach;
-
+		}
 	}
 
-			   $ar_posts[] = $recent_posts;
+	$ar_posts[] = $recent_posts;
 
-			   // var_dump( $ar_posts );
+	wp_reset_postdata();
 
-			   wp_reset_postdata();
+	echo wp_json_encode( $ar_posts );
 
-			   echo json_encode( $ar_posts );
-
-			   die();
-
-
+	die();
 
 }
 

@@ -245,7 +245,7 @@ function artifiche_custom_post_type() {
 		'show_in_nav_menus'  => true,
 		'show_tagcloud'      => true,
 	);
-	register_taxonomy( 'kollektionen', 'product', $args );
+	register_taxonomy( 'Kollektionen', 'product', $args );
 }
 	add_action( 'init', 'artifiche_custom_post_type' );
 
@@ -952,7 +952,7 @@ function shop_filter_cat( $query ) {
 			);
 
 		}
-	} elseif ( ! is_admin() && is_tax( 'kollektionen' ) && $query->is_main_query() ) {
+	} elseif ( ! is_admin() && is_tax( 'Kollektionen' ) && $query->is_main_query() ) {
 
 		if ( isset( $_COOKIE['sold_posters'] ) && $_COOKIE['sold_posters'] == true ) {
 			$sold_posters = 1;
