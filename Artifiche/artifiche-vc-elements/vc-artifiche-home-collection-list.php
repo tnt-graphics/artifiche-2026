@@ -84,7 +84,7 @@ function artifiche_home_collection_list_fun( $atts, $content = null ) {
 	}
 
 		$termargs = array(
-			'taxonomy' => array( 'Kollektionen' ), // taxonomy name
+			'taxonomy' => array( 'kollektionen' ), // taxonomy name
 			'field'    => 'term_id',
 			'include'  => explode( ',', $post1 ),
 		);
@@ -178,7 +178,7 @@ function artifiche_home_collection_list_search( $search_string ) {
 	$data  = array();
 
 	$args       = array(
-		'taxonomy'         => array( 'Kollektionen' ), // taxonomy name
+		'taxonomy'         => array( 'kollektionen' ), // taxonomy name
 		'orderby'          => 'id',
 		'order'            => 'ASC',
 		'hide_empty'       => false,
@@ -217,7 +217,7 @@ function artifiche_home_collection_list_search( $search_string ) {
 		// ),
 		// );
 		$args  = array(
-			'taxonomy'         => 'Kollektionen',
+			'taxonomy'         => 'kollektionen',
 			'hide_empty'       => false,
 			'suppress_filters' => false,
 			'meta_query'       => array(

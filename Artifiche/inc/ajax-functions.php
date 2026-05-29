@@ -1150,7 +1150,9 @@ function tax_load_more() {
 
 	);
 
-	$tax_query = array();
+	$tax_query              = array();
+	$kollektionen_batch     = null;
+	$kollektionen_query_off = (int) $count;
 
 	if ( $sold_posters == 1 ) {
 
@@ -1163,8 +1165,6 @@ function tax_load_more() {
 			'compare' => 'IN',
 
 		);
-
-
 
 	} else {
 
@@ -1180,33 +1180,51 @@ function tax_load_more() {
 
 	}
 
-	if( $tax_page_type == 'kollektionen' ) { 
+	if ( in_array( $tax_page_type, array( 'kollektionen', 'Kollektionen' ), true ) ) {
 
-		$ck = get_term_by('term_id',  $current_tax, 'kollektionen' );
+		$ck = function_exists( 'artifiche_get_kollektionen_term_by_id' )
+			? artifiche_get_kollektionen_term_by_id( $current_tax, $tax_page_type )
+			: get_term_by( 'term_id', $current_tax, $tax_page_type );
 
-		$plakatzuweisungen = get_field( 'plakatzuweisungen', $ck );
+		$plakatzuweisungen = '';
+		if ( ! empty( $_POST['plakatzuweisungen'] ) ) {
+			$posted = sanitize_text_field( wp_unslash( $_POST['plakatzuweisungen'] ) );
+			if ( preg_match( '/^[0-9;]+$/', $posted ) ) {
+				$plakatzuweisungen = $posted;
+			}
+		}
 
-			if ( $plakatzuweisungen != '' ) {
+		if ( $plakatzuweisungen === '' ) {
+			$plakatzuweisungen = function_exists( 'artifiche_get_kollektionen_plakatzuweisungen' )
+				? artifiche_get_kollektionen_plakatzuweisungen( $ck )
+				: ( ( $ck instanceof WP_Term ) ? get_field( 'plakatzuweisungen', $ck ) : '' );
+		}
 
-				$poster_array = explode( ';', $plakatzuweisungen );
+		if ( $plakatzuweisungen != '' ) {
+			$poster_array = array_values( array_filter( array_map( 'trim', explode( ';', $plakatzuweisungen ) ) ) );
 
-				if( ! empty( $poster_array ) ){
+			if ( ! empty( $poster_array ) ) {
+				$kollektionen_batch = array_slice( $poster_array, $kollektionen_query_off, 20 );
 
-					$metaquery[] = array(
+				if ( empty( $kollektionen_batch ) ) {
+					echo wp_json_encode( array( '' ) );
+					exit;
+				}
 
-						'key'     => 'plakatnummer',
+				$metaquery[] = array(
+					'key'     => 'plakatnummer',
+					'value'   => $kollektionen_batch,
+					'compare' => 'IN',
+				);
+			}
+		}
 
-						'value'   => $poster_array,
+		if ( empty( $kollektionen_batch ) ) {
+			echo wp_json_encode( array( '' ) );
+			exit;
+		}
 
-						'compare' => 'IN',
-
-					);
-
-				}	
-
-			}	
-
-	}else{
+	} else {
 
 		$tax_query[] = array(
 
@@ -1230,9 +1248,9 @@ function tax_load_more() {
 
 		// 'order'            => 'DESC',
 
-		'offset'           => $count,
+		'offset'           => null !== $kollektionen_batch ? 0 : $kollektionen_query_off,
 
-		'posts_per_page'   => 20,
+		'posts_per_page'   => null !== $kollektionen_batch ? count( $kollektionen_batch ) : 20,
 
 		'suppress_filters' => false,
 

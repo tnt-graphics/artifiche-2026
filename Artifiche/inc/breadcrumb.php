@@ -119,12 +119,28 @@ function get_breadcrumb()
     if (is_category() || is_tag() || is_tax()) {
       // Set the variables for this section
       $term_object = get_term($queried_object);
+      if ( ! $term_object instanceof WP_Term || is_wp_error( $term_object ) ) {
+        $term_object = $queried_object;
+      }
       $taxonomy = $term_object->taxonomy;
       $term_id = $term_object->term_id;
       $term_name = $term_object->name;
       $term_parent = $term_object->parent;
       $taxonomy_object = get_taxonomy($taxonomy);
+      $is_kollektionen = function_exists( 'artifiche_is_kollektionen_taxonomy' )
+        && artifiche_is_kollektionen_taxonomy( $taxonomy );
 
+      if ( ! $taxonomy_object && $is_kollektionen && function_exists( 'artifiche_get_kollektionen_taxonomy_slug' ) ) {
+        $taxonomy_object = get_taxonomy( artifiche_get_kollektionen_taxonomy_slug() );
+      }
+
+      if ( $is_kollektionen ) {
+        $plakatkollektionen_page = get_field( 'set_plakatkollektionen_page', 'option' );
+        $plakatkollektionen_link = $plakatkollektionen_page ? get_permalink( $plakatkollektionen_page ) : '';
+        $singular_name             = $plakatkollektionen_link
+          ? '<a href="' . esc_url( $plakatkollektionen_link ) . '"> ' . esc_html( get_the_title( $plakatkollektionen_page ) ) . '</a>'
+          : esc_html__( 'Kollektionen', 'artifiche' );
+      } elseif ( $taxonomy_object ) {
       switch ($taxonomy_object->labels->singular_name) {
         case "Kollektionens":
           $plakatkollektionen_link = get_permalink(
@@ -136,6 +152,7 @@ function get_breadcrumb()
             '"> ' .
             get_the_title(get_field("set_plakatkollektionen_page", "option")) .
             "</a>";
+          break;
         case "collections":
           $plakatkollektionen_link = get_permalink(
             get_field("set_plakatkollektionen_page", "option")
@@ -186,6 +203,9 @@ function get_breadcrumb()
           $singular_name = $taxonomy_object->labels->singular_name;
           break;
       }
+      } else {
+        $singular_name = $term_name;
+      }
       // &nbsp;/&nbsp;
       $current_term_link = $singular_name . $before . $term_name . $after;
       $parent_term_string = "";
@@ -196,9 +216,23 @@ function get_breadcrumb()
         while ($term_parent) {
           $term = get_term($term_parent, $taxonomy);
 
+          if ( function_exists( 'artifiche_is_kollektionen_taxonomy' ) && artifiche_is_kollektionen_taxonomy( $taxonomy ) && function_exists( 'artifiche_get_kollektionen_term_link' ) ) {
+            $term_link = artifiche_get_kollektionen_term_link( $term );
+          } else {
+            $term_link = get_term_link( $term );
+            if ( is_wp_error( $term_link ) ) {
+              $term_link = '';
+            }
+          }
+
+          if ( ! $term_link ) {
+            $term_parent = $term->parent;
+            continue;
+          }
+
           $parent_term_links[] = sprintf(
             $link,
-            esc_url(get_term_link($term)),
+            esc_url( $term_link ),
             $term->name
           );
 

@@ -151,7 +151,16 @@ $wishlist_page_id = get_option( 'yith_wcwl_wishlist_page_id' );
 				</div>
 			</div>
 			<div class="lang-switcher">
-				<?php do_action( 'wpml_add_language_selector' ); ?>
+				<?php
+				ob_start();
+				do_action( 'wpml_add_language_selector' );
+				$wpml_desktop_switcher = trim( ob_get_clean() );
+				if ( $wpml_desktop_switcher !== '' ) {
+					echo $wpml_desktop_switcher; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				} elseif ( function_exists( 'artifiche_render_kollektionen_language_switcher' ) ) {
+					artifiche_render_kollektionen_language_switcher();
+				}
+				?>
 			</div>
 			</div>	
 			

@@ -436,6 +436,93 @@ function artifiche_is_kollektionen_taxonomy( $taxonomy ) {
 }
 
 /**
+ * Front end only: clone kollektionen ↔ Kollektionen so old code paths still resolve.
+ * Never register the alias in admin — that creates a duplicate "collections" menu item.
+ */
+function artifiche_kollektionen_register_taxonomy_alias() {
+	if ( is_admin() ) {
+		return;
+	}
+
+	global $wp_taxonomies;
+
+	$registered = null;
+	foreach ( artifiche_get_kollektionen_taxonomies() as $slug ) {
+		if ( isset( $wp_taxonomies[ $slug ] ) ) {
+			$registered = $slug;
+			break;
+		}
+	}
+
+	if ( ! $registered ) {
+		return;
+	}
+
+	foreach ( artifiche_get_kollektionen_taxonomies() as $slug ) {
+		if ( isset( $wp_taxonomies[ $slug ] ) ) {
+			continue;
+		}
+
+		$alias                  = clone $wp_taxonomies[ $registered ];
+		$alias->name            = $slug;
+		$alias->show_ui         = false;
+		$alias->show_in_menu    = false;
+		$alias->show_admin_column = false;
+		$wp_taxonomies[ $slug ] = $alias;
+	}
+}
+add_action( 'init', 'artifiche_kollektionen_register_taxonomy_alias', 99 );
+
+/**
+ * Old admin bookmarks used taxonomy=Kollektionen; DB and registration use kollektionen.
+ */
+function artifiche_kollektionen_admin_taxonomy_redirect() {
+	if ( ! is_admin() || empty( $_GET['taxonomy'] ) ) {
+		return;
+	}
+
+	$taxonomy = wp_unslash( $_GET['taxonomy'] );
+	if ( 'Kollektionen' !== $taxonomy ) {
+		return;
+	}
+
+	$redirect_args = array(
+		'taxonomy' => 'kollektionen',
+	);
+	if ( ! empty( $_GET['post_type'] ) ) {
+		$redirect_args['post_type'] = sanitize_key( wp_unslash( $_GET['post_type'] ) );
+	}
+
+	wp_safe_redirect( add_query_arg( $redirect_args, admin_url( 'edit-tags.php' ) ) );
+	exit;
+}
+add_action( 'admin_init', 'artifiche_kollektionen_admin_taxonomy_redirect', 1 );
+
+/**
+ * Skip RSS feed link markup when Kollektionen slug is not registered (avoids wp_head warnings).
+ */
+function artifiche_kollektionen_disable_broken_tax_feed( $show ) {
+	$term = null;
+
+	if ( is_tax( artifiche_get_kollektionen_taxonomies() ) ) {
+		$term = get_queried_object();
+	} elseif ( artifiche_kollektionen_term_from_request() instanceof WP_Term ) {
+		$term = artifiche_kollektionen_term_from_request();
+	}
+
+	if ( ! ( $term instanceof WP_Term ) || ! artifiche_is_kollektionen_taxonomy( $term->taxonomy ) ) {
+		return $show;
+	}
+
+	if ( ! taxonomy_exists( $term->taxonomy ) ) {
+		return false;
+	}
+
+	return $show;
+}
+add_filter( 'feed_links_extra_show_tax_feed', 'artifiche_kollektionen_disable_broken_tax_feed' );
+
+/**
  * Registered Kollektionen taxonomy slug on this site (Kollektionen on live, kollektionen locally).
  */
 function artifiche_get_kollektionen_taxonomy_slug() {
@@ -538,9 +625,31 @@ function artifiche_get_kollektionen_terms( $args = array() ) {
 /**
  * Term link for Kollektionen dropdown; falls back when query_var / rewrites fail on tax archives.
  */
+function artifiche_build_kollektionen_term_path( $term ) {
+	if ( ! $term instanceof WP_Term ) {
+		return '';
+	}
+
+	$slug         = $term->slug;
+	$lang         = has_filter( 'wpml_current_language' ) ? apply_filters( 'wpml_current_language', null ) : null;
+	$default_lang = has_filter( 'wpml_default_language' ) ? apply_filters( 'wpml_default_language', null ) : 'de';
+
+	if ( $lang && $default_lang && $lang !== $default_lang ) {
+		$path = user_trailingslashit( $lang . '/collections/' . $slug );
+	} else {
+		$path = user_trailingslashit( 'kollektionen/' . $slug );
+	}
+
+	return home_url( $path );
+}
+
 function artifiche_get_kollektionen_term_link( $term ) {
 	if ( ! $term instanceof WP_Term ) {
 		return '';
+	}
+
+	if ( artifiche_is_kollektionen_taxonomy( $term->taxonomy ) && ! taxonomy_exists( $term->taxonomy ) ) {
+		return artifiche_build_kollektionen_term_path( $term );
 	}
 
 	$link = get_term_link( $term );
@@ -548,12 +657,7 @@ function artifiche_get_kollektionen_term_link( $term ) {
 		return $link;
 	}
 
-	$taxonomy = $term->taxonomy;
-	if ( ! taxonomy_exists( $taxonomy ) ) {
-		$taxonomy = artifiche_get_kollektionen_taxonomy_slug();
-	}
-
-	return home_url( '/?taxonomy=' . rawurlencode( $taxonomy ) . '&term=' . rawurlencode( $term->slug ) );
+	return artifiche_build_kollektionen_term_path( $term );
 }
 
 /**
@@ -682,12 +786,22 @@ function artifiche_kollektionen_term_from_request() {
 }
 
 function artifiche_get_kollektionen_queried_term() {
-	$object = get_queried_object();
-	if ( $object instanceof WP_Term && artifiche_is_kollektionen_taxonomy( $object->taxonomy ) ) {
-		return $object;
+	static $cached = null;
+
+	if ( null !== $cached ) {
+		return $cached ? $cached : null;
 	}
 
-	return artifiche_kollektionen_term_from_request();
+	$object = get_queried_object();
+	if ( $object instanceof WP_Term && artifiche_is_kollektionen_taxonomy( $object->taxonomy ) ) {
+		$cached = $object;
+		return $cached;
+	}
+
+	$term = artifiche_kollektionen_term_from_request();
+	$cached = ( $term instanceof WP_Term ) ? $term : false;
+
+	return $cached ? $cached : null;
 }
 
 function artifiche_should_use_kollektionen_template() {
@@ -725,6 +839,273 @@ function artifiche_fix_kollektionen_taxonomy_archive() {
 	status_header( 200 );
 }
 add_action( 'wp', 'artifiche_fix_kollektionen_taxonomy_archive', 1 );
+
+/**
+ * Use the registered taxonomy slug in the main query so WPML can resolve term translations.
+ */
+function artifiche_kollektionen_normalize_queried_term_for_wpml() {
+	if ( is_admin() ) {
+		return;
+	}
+
+	$term = artifiche_get_kollektionen_queried_term();
+	if ( ! $term instanceof WP_Term ) {
+		return;
+	}
+
+	$registered = artifiche_get_kollektionen_taxonomy_slug();
+	if ( $term->taxonomy === $registered || ! taxonomy_exists( $registered ) ) {
+		return;
+	}
+
+	$normalized = get_term( (int) $term->term_id, $registered );
+	if ( ! ( $normalized instanceof WP_Term ) || is_wp_error( $normalized ) ) {
+		return;
+	}
+
+	global $wp_query;
+
+	$wp_query->queried_object    = $normalized;
+	$wp_query->queried_object_id = (int) $normalized->term_id;
+}
+add_action( 'wp', 'artifiche_kollektionen_normalize_queried_term_for_wpml', 0 );
+
+/**
+ * @return string[]
+ */
+function artifiche_get_wpml_language_codes() {
+	global $sitepress;
+
+	if ( isset( $sitepress ) && is_object( $sitepress ) && method_exists( $sitepress, 'get_active_languages' ) ) {
+		$active = $sitepress->get_active_languages();
+		if ( is_array( $active ) && ! empty( $active ) ) {
+			return array_keys( $active );
+		}
+	}
+
+	return array( 'de', 'en' );
+}
+
+/**
+ * ACF plakatzuweisungen for a Kollektionen term (K/k + WPML-safe).
+ */
+function artifiche_get_kollektionen_plakatzuweisungen( $term ) {
+	if ( ! $term instanceof WP_Term ) {
+		return '';
+	}
+
+	$read_term    = $term;
+	$default_lang = apply_filters( 'wpml_default_language', 'de' );
+	$current_lang = apply_filters( 'wpml_current_language', null );
+	$switched     = false;
+
+	if ( has_filter( 'wpml_object_id' ) && $default_lang ) {
+		foreach ( artifiche_get_kollektionen_taxonomies() as $tax_slug ) {
+			$source_id = apply_filters( 'wpml_object_id', (int) $term->term_id, $tax_slug, true, $default_lang );
+			if ( $source_id ) {
+				$resolved = artifiche_get_kollektionen_term_by_id( (int) $source_id );
+				if ( $resolved instanceof WP_Term ) {
+					$read_term = $resolved;
+					break;
+				}
+			}
+		}
+	}
+
+	if ( $default_lang && $current_lang && $default_lang !== $current_lang ) {
+		do_action( 'wpml_switch_language', $default_lang );
+		$switched = true;
+	}
+
+	$try_terms = array( $read_term );
+	foreach ( artifiche_get_kollektionen_taxonomies() as $tax_slug ) {
+		$alt = get_term( (int) $read_term->term_id, $tax_slug );
+		if ( $alt instanceof WP_Term && ! is_wp_error( $alt ) ) {
+			$try_terms[] = $alt;
+		}
+	}
+
+	foreach ( $try_terms as $try_term ) {
+		$value = get_field( 'plakatzuweisungen', $try_term );
+		if ( is_string( $value ) && $value !== '' ) {
+			if ( $switched && $current_lang ) {
+				do_action( 'wpml_switch_language', $current_lang );
+			}
+			return $value;
+		}
+
+		foreach ( artifiche_get_kollektionen_taxonomies() as $tax_slug ) {
+			$value = get_field( 'plakatzuweisungen', $tax_slug . '_' . $try_term->term_id );
+			if ( is_string( $value ) && $value !== '' ) {
+				if ( $switched && $current_lang ) {
+					do_action( 'wpml_switch_language', $current_lang );
+				}
+				return $value;
+			}
+		}
+	}
+
+	if ( $switched && $current_lang ) {
+		do_action( 'wpml_switch_language', $current_lang );
+	}
+
+	return '';
+}
+
+/**
+ * Build DE /kollektionen/{slug}/ or EN /en/collections/{slug}/ for a collection term.
+ */
+function artifiche_kollektionen_language_url( $lang_code, $term = null ) {
+	if ( ! is_string( $lang_code ) || $lang_code === '' ) {
+		return '';
+	}
+
+	if ( ! $term instanceof WP_Term ) {
+		$term = artifiche_get_kollektionen_queried_term();
+	}
+
+	if ( ! $term instanceof WP_Term ) {
+		return '';
+	}
+
+	$default_lang   = apply_filters( 'wpml_default_language', 'de' );
+	$registered_tax = artifiche_get_kollektionen_taxonomy_slug();
+	$target_slug    = $term->slug;
+
+	if ( $lang_code !== $default_lang && is_string( $lang_code ) && $lang_code !== '' && has_filter( 'wpml_object_id' ) ) {
+		$translated_id = apply_filters( 'wpml_object_id', $term->term_id, $registered_tax, false, $lang_code );
+		if ( ! $translated_id ) {
+			$translated_id = apply_filters( 'wpml_object_id', $term->term_id, $term->taxonomy, false, $lang_code );
+		}
+		if ( $translated_id ) {
+			$translated = get_term( (int) $translated_id, $registered_tax );
+			if ( ! ( $translated instanceof WP_Term ) || is_wp_error( $translated ) ) {
+				$translated = get_term( (int) $translated_id );
+			}
+			if ( $translated instanceof WP_Term && ! is_wp_error( $translated ) ) {
+				$target_slug = $translated->slug;
+			}
+		}
+	}
+
+	if ( $lang_code === $default_lang ) {
+		$path = user_trailingslashit( 'kollektionen/' . $target_slug );
+	} else {
+		$path = user_trailingslashit( $lang_code . '/collections/' . $target_slug );
+	}
+
+	$url = home_url( $path );
+
+	global $sitepress;
+	if ( isset( $sitepress ) && is_object( $sitepress ) && method_exists( $sitepress, 'convert_url' ) ) {
+		$url = $sitepress->convert_url( $url, $lang_code );
+	}
+
+	return $url;
+}
+
+function artifiche_kollektionen_wpml_ls_language_url( $url, $data ) {
+	if ( ! artifiche_should_use_kollektionen_template() ) {
+		return $url;
+	}
+
+	$lang_code = '';
+	if ( is_array( $data ) ) {
+		if ( ! empty( $data['language_code'] ) && is_string( $data['language_code'] ) ) {
+			$lang_code = $data['language_code'];
+		} elseif ( ! empty( $data['code'] ) && is_string( $data['code'] ) ) {
+			$lang_code = $data['code'];
+		}
+	} elseif ( is_string( $data ) ) {
+		$lang_code = $data;
+	}
+
+	if ( ! is_string( $lang_code ) || $lang_code === '' ) {
+		return $url;
+	}
+
+	$fixed = artifiche_kollektionen_language_url( $lang_code );
+
+	return $fixed ? $fixed : $url;
+}
+add_filter( 'wpml_ls_language_url', 'artifiche_kollektionen_wpml_ls_language_url', 10, 2 );
+
+function artifiche_kollektionen_wpml_active_languages( $languages, $args = null ) {
+	if ( ! artifiche_should_use_kollektionen_template() ) {
+		return $languages;
+	}
+
+	$term = artifiche_get_kollektionen_queried_term();
+	if ( ! $term instanceof WP_Term ) {
+		return $languages;
+	}
+
+	$current = apply_filters( 'wpml_current_language', 'de' );
+
+	if ( empty( $languages ) || ! is_array( $languages ) ) {
+		$languages = array();
+		foreach ( artifiche_get_wpml_language_codes() as $code ) {
+			$url = artifiche_kollektionen_language_url( $code, $term );
+			if ( ! $url ) {
+				continue;
+			}
+			$languages[ $code ] = array(
+				'code'          => $code,
+				'language_code' => $code,
+				'active'        => ( $code === $current ),
+				'url'           => $url,
+			);
+		}
+
+		return $languages;
+	}
+
+	foreach ( $languages as $code => $lang ) {
+		$lang_code = ( is_array( $lang ) && ! empty( $lang['language_code'] ) && is_string( $lang['language_code'] ) )
+			? $lang['language_code']
+			: $code;
+		if ( ! is_string( $lang_code ) || $lang_code === '' ) {
+			continue;
+		}
+		$url = artifiche_kollektionen_language_url( $lang_code, $term );
+		if ( $url ) {
+			$languages[ $code ]['url'] = $url;
+		}
+	}
+
+	return $languages;
+}
+add_filter( 'wpml_active_languages', 'artifiche_kollektionen_wpml_active_languages', 20, 2 );
+
+/**
+ * Fallback desktop switcher when WPML outputs nothing on Kollektionen archives.
+ */
+function artifiche_render_kollektionen_language_switcher() {
+	if ( ! artifiche_should_use_kollektionen_template() ) {
+		return;
+	}
+
+	$languages = apply_filters( 'wpml_active_languages', null, array( 'skip_missing' => 0 ) );
+	if ( empty( $languages ) || ! is_array( $languages ) ) {
+		return;
+	}
+
+	$current = apply_filters( 'wpml_current_language', 'de' );
+
+	echo '<ul class="artifiche-kollektionen-lang-switcher">';
+	foreach ( $languages as $lang ) {
+		if ( empty( $lang['url'] ) ) {
+			continue;
+		}
+		$code   = isset( $lang['language_code'] ) ? $lang['language_code'] : '';
+		$label  = ( $code === 'de' ) ? 'DE' : strtoupper( $code );
+		$active = ! empty( $lang['active'] ) || $code === $current;
+		echo '<li class="' . ( $active ? 'lang-active' : '' ) . '">';
+		echo '<a href="' . esc_url( $lang['url'] ) . '"><span>' . esc_html( $label ) . '</span></a>';
+		echo '</li>';
+	}
+	echo '</ul>';
+}
 
 /**
  * Load the Kollektionen taxonomy template without changing general-settings.php.

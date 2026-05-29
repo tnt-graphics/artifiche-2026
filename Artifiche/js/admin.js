@@ -283,22 +283,28 @@ jQuery(document).ready(function() {
 
     if (jQuery('.tax-all-list').length) {
         var loadmore = jQuery('.tax-loadmore');
-        var itemcount = jQuery(".poster-single").length;
-        if (itemcount < 20) {
+        var itemcount = jQuery('.tax-all-list .poster-single').length;
+        var posterTotal = parseInt(jQuery('#kollektionen-poster-total').val(), 10) || 0;
+        if (posterTotal > 0 && itemcount >= posterTotal) {
+            loadmore.hide();
+        } else if (itemcount < 20) {
             loadmore.hide();
         }
     }
     jQuery(document).on('click', '.tax-loadmore', function() {
         var tax_page_type = jQuery("#tax-readmore-name").val();
         var current_tax = jQuery("#current-tax").val();
-        var itemcount = jQuery(".poster-single").length;
+        var plakatzuweisungen = jQuery("#kollektionen-plakatzuweisungen").val() || '';
+        var itemcount = jQuery('.tax-all-list .poster-single').length;
+        var posterTotal = parseInt(jQuery('#kollektionen-poster-total').val(), 10) || 0;
         var tempScrollTop = jQuery(window).scrollTop()
         if (jQuery('.tax-all-list').length) {
             var data = {
                 action: 'tax_load_more',
                 count: itemcount,
                 tax_page_type: tax_page_type,
-                current_tax: current_tax
+                current_tax: current_tax,
+                plakatzuweisungen: plakatzuweisungen
             };
             jQuery.ajax({
                 url: ajax_object.ajax_url,
@@ -318,7 +324,7 @@ jQuery(document).ready(function() {
 
                     var posts = JSON.parse(response);
                     var countp = jQuery(posts[0]).filter('.poster-single').length;
-                    if (posts == '' || (countp < 20)) {
+                    if (posts == '' || countp === 0 || (posterTotal > 0 && jQuery('.tax-all-list .poster-single').length + countp >= posterTotal)) {
                         loadmore.hide();
                     }
                     jQuery('.tax-all-list').append(posts);
