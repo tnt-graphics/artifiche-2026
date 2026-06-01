@@ -6,31 +6,33 @@ Element Description: Artifiche Testimonial Big
 
 
 // Map the block with vc_map()
-vc_map(
-	array(
-		'name'        => __( 'Artifiche', 'artifiche' ),
-		'base'        => 'artifiche_testimonial_four',
-		'icon'        => get_template_directory_uri() . '/img/logo2.svg',
-		'category'    => __( 'Artifiche Elements', 'artifiche' ),
-		'description' => __( 'Artifiche Home-Poster (rechts gross)', 'artifiche' ),
-		'params'      => array_merge(
+add_action(
+	'vc_before_init',
+	function () {
+		vc_map(
 			array(
-				array(
-					'type'        => 'autocomplete',
-					'heading'     => esc_html__( 'Poster auswählen', 'artifiche' ),
-					'param_name'  => 'post1',
-					'description' => esc_html__( 'Wählen Sie das gewünschte Poster aus.', 'artifiche' ),
-					'settings'    => array(
-						'multiple'      => false,
-						'sortable'      => true,
-						'unique_values' => true,
-						'min_length'    => 1,
+				'name'        => __( 'Artifiche', 'artifiche' ),
+				'base'        => 'artifiche_testimonial_four',
+				'icon'        => get_template_directory_uri() . '/img/logo2.svg',
+				'category'    => __( 'Artifiche Elements', 'artifiche' ),
+				'description' => __( 'Artifiche Home-Poster (rechts gross)', 'artifiche' ),
+				'params'      => array(
+					array(
+						'type'        => 'autocomplete',
+						'heading'     => esc_html__( 'Poster auswählen', 'artifiche' ),
+						'param_name'  => 'post1',
+						'description' => esc_html__( 'Wählen Sie das gewünschte Poster aus.', 'artifiche' ),
+						'settings'    => array(
+							'multiple'      => false,
+							'sortable'      => true,
+							'unique_values' => true,
+							'min_length'    => 0,
+						),
 					),
 				),
-
 			)
-		),
-	)
+		);
+	}
 );
 
 
@@ -113,14 +115,11 @@ function artifiche_testimonial_four_fun( $atts, $content = null ) {
 					$i     = 0;
 					$count = count( $category_detail );
 				foreach ( $category_detail as $cd ) {
-					 $künstler_vorname = get_field( 'gestalter_vorname', $cd );
-          			 $künstle_name = get_field( 'gestalter_name', $cd );
-					$coma = '';
-					if( $künstler_vorname != '' ||  $künstle_name != '')
+					$künstler_vorname = get_field( 'gestalter_vorname', $cd );
+					$künstle_name     = get_field( 'gestalter_name', $cd );
+					$coma             = ( $künstler_vorname != '' || $künstle_name != '' ) ? ',' : '';
 
-					$coma = ',';
-
-					$recent_posts .= '<span class="kunstler_name">'.$künstler_vorname.' '.$künstle_name. $coma . ' ' .$jahr.'</span>';						
+					$recent_posts .= '<span class="kunstler_name">' . $künstler_vorname . ' ' . $künstle_name . $coma . ' ' . $jahr . '</span>';
 
 				}
 			}
@@ -138,63 +137,8 @@ endforeach;
 		return $html;
 }
 
-
-add_filter( 'vc_autocomplete_artifiche_testimonial_four_post1_callback', 'artifiche_testimonial_four_search', 10, 1 );
-add_filter( 'vc_autocomplete_artifiche_testimonial_four_post1_render', 'vc_include_field_render', 10, 1 );
-
-function artifiche_testimonial_four_search( $search_string ) {
-	$query = $search_string;
-	$data  = array();
-
-	$args       = array(
-		'post_type'        => 'product',
-		'post_status'      => 'publish',
-		'orderby'          => 'date',
-		'order'            => 'DESC',
-		's'                => $query,
-		'suppress_filters' => false,
-	);
-	$page_names = array();
-	// $args['vc_search_by_title_only'] = true;
-	$args['posts_per_page '] = -1;
-	if ( 0 === strlen( $args['s'] ) ) {
-		unset( $args['s'] );
-	}
-	add_filter( 'posts_search', 'vc_search_by_title_only', 500, 2 );
-	$posts = get_posts( $args );
-	if ( is_array( $posts ) && ! empty( $posts ) ) {
-		foreach ( $posts as $post ) {
-			$data[] = array(
-				'value' => $post->ID,
-				'label' => $post->post_title,
-				'group' => $post->post_type,
-			);
-		}
-	} else {
-		$args = array(
-			'numberposts' => -1,
-			'post_type'   => 'product',
-			'suppress_filters' => false,
-			'meta_query'  => array(
-
-				array(
-					'key'     => 'plakatnummer',
-					'value'   => $query,
-					'compare' => 'like',
-				),
-
-			),
-		);
-		$posts = get_posts( $args );
-		if ( is_array( $posts ) && ! empty( $posts ) ) {
-			foreach ( $posts as $post ) {
-				$data[] = array(
-					'value' => $post->ID,
-					'label' => $post->post_title,
-					'group' => $post->post_type,
-				);
-			}
-		}
-	}
-	return $data;
+if ( function_exists( 'artifiche_vc_poster_autocomplete_suggester' ) ) {
+	add_filter( 'vc_autocomplete_artifiche_testimonial_four_post1_callback', 'artifiche_vc_poster_autocomplete_suggester', 10, 1 );
+	add_filter( 'vc_autocomplete_artifiche_testimonial_four_post1_render', 'artifiche_vc_poster_autocomplete_render', 10, 1 );
 }
+

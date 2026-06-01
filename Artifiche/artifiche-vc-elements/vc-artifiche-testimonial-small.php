@@ -138,63 +138,8 @@ endforeach;
 	return $html;
 }
 
-
-add_filter( 'vc_autocomplete_artifiche_testimonial_small_post1_callback', 'artifiche_testimonial_small_search', 10, 1 );
-add_filter( 'vc_autocomplete_artifiche_testimonial_small_post1_render', 'vc_include_field_render', 10, 1 );
-
-function artifiche_testimonial_small_search( $search_string ) {
-	$query = $search_string;
-	$data  = array();
-
-	$args       = array(
-		'post_type'        => 'product',
-		'post_status'      => 'publish',
-		'orderby'          => 'date',
-		'order'            => 'DESC',
-		's'                => $query,
-		'suppress_filters' => false,
-	);
-	$page_names = array();
-	// $args['vc_search_by_title_only'] = true;
-	$args['posts_per_page '] = -1;
-	if ( 0 === strlen( $args['s'] ) ) {
-		unset( $args['s'] );
-	}
-	add_filter( 'posts_search', 'vc_search_by_title_only', 500, 2 );
-	$posts = get_posts( $args );
-	if ( is_array( $posts ) && ! empty( $posts ) ) {
-		foreach ( $posts as $post ) {
-			$data[] = array(
-				'value' => $post->ID,
-				'label' => $post->post_title,
-				'group' => $post->post_type,
-			);
-		}
-	}else{
-		$args = array(
-		'numberposts'	=> -1,
-		'post_type'		=> 'product',
-		'suppress_filters' => false,
-		'meta_query'	=> array(
-
-		array(
-			'key'		=> 'plakatnummer',
-			'value'		=> $query,
-			'compare'	=> 'like'
-		),
-
-		)
-		);
-		$posts = get_posts( $args );
-		if ( is_array( $posts ) && ! empty( $posts ) ) {
-		foreach ( $posts as $post ) {
-			$data[] = array(
-				'value' => $post->ID,
-				'label' => $post->post_title,
-				'group' => $post->post_type,
-			);
-			}
-		}
-	}
-	return $data;
+if ( function_exists( 'artifiche_vc_poster_autocomplete_suggester' ) ) {
+	add_filter( 'vc_autocomplete_artifiche_testimonial_small_post1_callback', 'artifiche_vc_poster_autocomplete_suggester', 10, 1 );
+	add_filter( 'vc_autocomplete_artifiche_testimonial_small_post1_render', 'artifiche_vc_poster_autocomplete_render', 10, 1 );
 }
+

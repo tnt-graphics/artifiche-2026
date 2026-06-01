@@ -979,6 +979,122 @@ function artifiche_kollektionen_language_url( $lang_code, $term = null ) {
 	return $url;
 }
 
+/**
+ * Product search for WPBakery autocomplete poster fields.
+ *
+ * @param string $query Search term (title or Plakatnummer).
+ * @param int    $limit Max results.
+ * @return WP_Post[]
+ */
+function artifiche_vc_product_autocomplete_search( $query = '', $limit = 25 ) {
+	$query = is_string( $query ) ? trim( $query ) : '';
+	$limit = max( 1, (int) $limit );
+	$base  = array(
+		'post_type'              => 'product',
+		'post_status'            => 'publish',
+		'posts_per_page'         => $limit,
+		'orderby'                => 'date',
+		'order'                  => 'DESC',
+		// Admin poster picker: show products across WPML languages on live.
+		'suppress_filters'       => is_admin(),
+		'ignore_sticky_posts'    => true,
+		'no_found_rows'          => true,
+		'update_post_meta_cache' => false,
+		'update_post_term_cache' => false,
+	);
+
+	if ( $query === '' ) {
+		return get_posts( $base );
+	}
+
+	$args = $base;
+	$args['s']                       = $query;
+	$args['vc_search_by_title_only'] = true;
+
+	if ( function_exists( 'vc_search_by_title_only' ) ) {
+		add_filter( 'posts_search', 'vc_search_by_title_only', 500, 2 );
+	}
+	$posts = get_posts( $args );
+	if ( function_exists( 'vc_search_by_title_only' ) ) {
+		remove_filter( 'posts_search', 'vc_search_by_title_only', 500 );
+	}
+
+	if ( ! empty( $posts ) ) {
+		return $posts;
+	}
+
+	return get_posts(
+		array_merge(
+			$base,
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'plakatnummer',
+						'value'   => $query,
+						'compare' => 'LIKE',
+					),
+				),
+			)
+		)
+	);
+}
+
+/**
+ * WPBakery autocomplete suggestions for poster picker fields.
+ *
+ * @param string $search_string Search query from the editor.
+ * @return array<int, array<string, string>>
+ */
+function artifiche_vc_poster_autocomplete_suggester( $search_string ) {
+	$query = is_string( $search_string ) ? trim( $search_string ) : '';
+	$data  = array();
+
+	foreach ( (array) artifiche_vc_product_autocomplete_search( $query, 25 ) as $post ) {
+		$label = $post->post_title;
+		$nr    = get_post_meta( $post->ID, 'plakatnummer', true );
+		if ( $nr ) {
+			$label .= ' (' . $nr . ')';
+		}
+
+		$data[] = array(
+			'value' => (string) $post->ID,
+			'label' => $label,
+			'group' => $post->post_type,
+		);
+	}
+
+	return $data;
+}
+
+/**
+ * WPBakery autocomplete label renderer for saved poster IDs.
+ *
+ * @param array<string, string> $value Current field value.
+ * @return array<string, string>|false
+ */
+function artifiche_vc_poster_autocomplete_render( $value ) {
+	if ( ! is_array( $value ) || empty( $value['value'] ) ) {
+		return $value;
+	}
+
+	$post = get_post( (int) $value['value'] );
+	if ( ! $post ) {
+		return false;
+	}
+
+	$label = $post->post_title;
+	$nr    = get_post_meta( $post->ID, 'plakatnummer', true );
+	if ( $nr ) {
+		$label .= ' (' . $nr . ')';
+	}
+
+	return array(
+		'value' => (string) $post->ID,
+		'label' => $label,
+		'group' => $post->post_type,
+	);
+}
+
 function artifiche_kollektionen_wpml_ls_language_url( $url, $data ) {
 	if ( ! artifiche_should_use_kollektionen_template() ) {
 		return $url;

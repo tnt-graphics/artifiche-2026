@@ -330,7 +330,7 @@ function artifiche_register_cf7_custom_tags() {
 	wpcf7_add_form_tag( 'artifiche_custom_pid_cf7', 'wpcf7_get_pid_shortcode_handler1', true );
 }
 
-add_filter( 'wpcf7_skip_spam_check', '__return_true' );
+//add_filter( 'wpcf7_skip_spam_check', '__return_true' );
 
 if ( function_exists( 'wp_get_environment_type' ) && 'local' === wp_get_environment_type() ) {
 	add_action(
