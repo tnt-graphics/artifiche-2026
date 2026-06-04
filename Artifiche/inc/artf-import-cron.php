@@ -232,11 +232,11 @@ function artf_trigger_en_import( $import_id ) {
 
 
 
-	if ( $import_id == 143 ) { // Kollektionen_DE.
+	if ( $import_id == 143 ) { // Publikationen_DE-EN.
 
 
 
-		$trigger_url = site_url() . '/wp-cron.php?import_key=1UhjOBTd&import_id=152&action=trigger';
+		$trigger_url = site_url() . '/wp-cron.php?import_key=1UhjOBTd&import_id=154&action=trigger';
 
 		$response    = wp_remote_get( $trigger_url );
 
@@ -248,7 +248,7 @@ function artf_trigger_en_import( $import_id ) {
 
 
 
-	if ( $import_id == 152 ) { // Kollektionen_EN.
+	if ( $import_id == 154 ) { // Kollektionen_DE.
 
 
 
@@ -262,7 +262,7 @@ function artf_trigger_en_import( $import_id ) {
 
 	}
 
-	if ( $import_id == 145 ) { // Plakatexport_DE.
+	if ( $import_id == 145 ) { // Kollektionen_EN → Plakatexport_DE.
 
 
 
@@ -278,7 +278,7 @@ function artf_trigger_en_import( $import_id ) {
 
 
 
-	if ( $import_id == 146 ) { // Plakatexport_EN.
+	if ( $import_id == 146 ) { // Plakatexport_DE → Plakatexport_EN.
 
 
 
@@ -290,7 +290,7 @@ function artf_trigger_en_import( $import_id ) {
 
 	}
 
-	if ( $import_id == 147 ) { // Plakatexport_EN.
+	if ( $import_id == 147 ) { // Plakatexport_EN (chain end).
 
 		update_option( 'cron_status', 'completed' );
 
