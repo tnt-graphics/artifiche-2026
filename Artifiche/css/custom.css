@@ -2471,6 +2471,13 @@ a.cart:hover .artifiche-mini-cart {
   position: absolute;
   top: 56px;
   right: 0;
+  z-index: 1000;
+}
+
+/* Icon-Leiste (inkl. Mini-Warenkorb) über das Hauptmenü legen */
+.header-right {
+  position: relative;
+  z-index: 1000;
 }
 
 .artifiche-mini-cart a.remove {

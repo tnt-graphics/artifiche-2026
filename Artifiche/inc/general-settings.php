@@ -17,6 +17,7 @@
  */
 // require get_template_directory() . '/inc/class-ubersee-gateway.php';
 require get_template_directory() . '/inc/artf-import-cron.php';
+require get_template_directory() . '/inc/artf-import-category-fix.php';
 
 function artifiche_body_classes( $classes ) {
 	// Adds a class of hfeed to non-singular pages.
