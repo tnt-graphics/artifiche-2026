@@ -291,7 +291,8 @@ function kunstler_url_rewrite() {
 
 
 
-$sale_option = get_field( 'sale_option', 'option' );
+// ACF ist z.B. bei wp-activate.php oder deaktiviertem Plugin nicht geladen -> sonst Fatal Error.
+$sale_option = function_exists( 'get_field' ) ? get_field( 'sale_option', 'option' ) : null;
 if ( ! empty( $sale_option ) && $sale_option[0] == 'true' ) {
 	add_filter( 'woocommerce_add_cart_item_data', 'add_cart_item_data', 10, 3 );
 	add_action( 'woocommerce_before_calculate_totals', 'before_calculate_totals', 10, 1 );
