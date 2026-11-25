@@ -166,8 +166,8 @@ function artf_after_import_check_unlinked_terms( $import_id ) {
 		wc_get_logger()->warning( $message, array( 'source' => 'artf-all-import-log' ) );
 	}
 
-	// Mail nur, wenn ein Empfänger gesetzt ist (admin_email gehört noch der früheren Agentur).
-	$to = apply_filters( 'artf_import_check_mail_to', '' );
+	// Bewusst nicht admin_email (gehört noch der früheren Agentur).
+	$to = apply_filters( 'artf_import_check_mail_to', 'webteam@tnt-graphics.ch' );
 	if ( $to ) {
 		wp_mail( $to, 'Artifiche: Begriffe ohne Übersetzung nach Import', $message );
 	}
