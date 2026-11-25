@@ -782,7 +782,7 @@ a.lrg-logo img, a.sml-logo img {
   margin-top: 0
 }
 
-ul#menu-mega-menu {
+ul#menu-mega-menu, ul#menu-mega-menu-en {
     max-width: calc(100% - 40px);
     margin: auto;
     display: block;

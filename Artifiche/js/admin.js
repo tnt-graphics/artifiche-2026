@@ -282,29 +282,29 @@ jQuery(document).ready(function() {
 jQuery(document).ready(function() {
 
     if (jQuery('.tax-all-list').length) {
-        var loadmore = jQuery('.tax-loadmore');
+        var loadmoreBtn = jQuery('.tax-loadmore');
         var itemcount = jQuery('.tax-all-list .poster-single').length;
         var posterTotal = parseInt(jQuery('#kollektionen-poster-total').val(), 10) || 0;
         if (posterTotal > 0 && itemcount >= posterTotal) {
-            loadmore.hide();
+            loadmoreBtn.hide();
         } else if (itemcount < 20) {
-            loadmore.hide();
+            loadmoreBtn.hide();
         }
     }
     jQuery(document).on('click', '.tax-loadmore', function() {
+        var loadmore = jQuery(this);
         var tax_page_type = jQuery("#tax-readmore-name").val();
         var current_tax = jQuery("#current-tax").val();
-        var plakatzuweisungen = jQuery("#kollektionen-plakatzuweisungen").val() || '';
-        var itemcount = jQuery('.tax-all-list .poster-single').length;
+        var loadOffsetEl = jQuery('#kollektionen-load-offset');
+        var loadOffset = loadOffsetEl.length ? parseInt(loadOffsetEl.val(), 10) || 0 : jQuery('.tax-all-list .poster-single').length;
         var posterTotal = parseInt(jQuery('#kollektionen-poster-total').val(), 10) || 0;
         var tempScrollTop = jQuery(window).scrollTop()
         if (jQuery('.tax-all-list').length) {
             var data = {
                 action: 'tax_load_more',
-                count: itemcount,
+                count: loadOffset,
                 tax_page_type: tax_page_type,
-                current_tax: current_tax,
-                plakatzuweisungen: plakatzuweisungen
+                current_tax: current_tax
             };
             jQuery.ajax({
                 url: ajax_object.ajax_url,
@@ -324,7 +324,10 @@ jQuery(document).ready(function() {
 
                     var posts = JSON.parse(response);
                     var countp = jQuery(posts[0]).filter('.poster-single').length;
-                    if (posts == '' || countp === 0 || (posterTotal > 0 && jQuery('.tax-all-list .poster-single').length + countp >= posterTotal)) {
+                    if (loadOffsetEl.length) {
+                        loadOffsetEl.val(loadOffset + 20);
+                    }
+                    if (posts == '' || countp === 0 || (posterTotal > 0 && loadOffset + 20 >= posterTotal)) {
                         loadmore.hide();
                     }
                     jQuery('.tax-all-list').append(posts);

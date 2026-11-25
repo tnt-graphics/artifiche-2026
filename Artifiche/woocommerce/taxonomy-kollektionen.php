@@ -168,7 +168,13 @@ if ( ! is_front_page() ) {
 			$ct = $queried_object;
 		}
 
-		$plakatzuweisungen = $ct ? get_field( 'plakatzuweisungen', $ct ) : '';
+		$plakatzuweisungen = '';
+		if ( $ct && function_exists( 'artifiche_get_kollektionen_plakatzuweisungen' ) ) {
+			$plakatzuweisungen = artifiche_get_kollektionen_plakatzuweisungen( $ct );
+		}
+		if ( empty( $plakatzuweisungen ) && $ct ) {
+			$plakatzuweisungen = get_field( 'plakatzuweisungen', $ct );
+		}
 		if ( empty( $plakatzuweisungen ) && $ct ) {
 			$plakatzuweisungen = get_field( 'plakatzuweisungen', $kollektionen_taxonomy . '_' . $ct->term_id );
 		}
@@ -232,6 +238,9 @@ if ( ! is_front_page() ) {
 				$poster_args['meta_query']             = $metaquery;
 				$poster_args['meta_query']['relation'] = 'AND';
 				$poster_posts                          = get_posts( $poster_args );
+				if ( function_exists( 'artifiche_sort_posts_by_plakatnummer_order' ) ) {
+					$poster_posts = artifiche_sort_posts_by_plakatnummer_order( $poster_posts, $poster_batch );
+				}
 			}
 		}
 
@@ -353,8 +362,8 @@ if ( ! is_front_page() ) {
 			'</div></div>
 			<input type="hidden" name="tax-readmore-name" id="tax-readmore-name" value="' . esc_attr( $kollektionen_taxonomy ) . '">
 			<input type="hidden" id="current-tax" name="current-tax" value="' . esc_attr( $current_term ) . '">
-			<input type="hidden" id="kollektionen-plakatzuweisungen" value="' . esc_attr( $plakatzuweisungen ) . '">
 			<input type="hidden" id="kollektionen-poster-total" value="' . esc_attr( $poster_total ) . '">
+			<input type="hidden" id="kollektionen-load-offset" value="' . esc_attr( min( 20, $poster_total ) ) . '">
 			<div class="artifiche-readmore tax-loadmore">
 		
 			<a href="javascript:void(0);" id="tax-loadmore" class="outline-btn loadmore"><i class="icon-plus"></i>

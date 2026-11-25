@@ -1036,11 +1036,16 @@ add_action( 'wp_ajax_tax_load_more', 'tax_load_more' );
 
 function tax_load_more() {
 
-	$count         = $_POST['count'];
+	$count         = isset( $_POST['count'] ) ? (int) $_POST['count'] : 0;
 
-	$tax_page_type = $_POST['tax_page_type'];
+	$tax_page_type_raw = isset( $_POST['tax_page_type'] ) ? wp_unslash( $_POST['tax_page_type'] ) : '';
+	$tax_page_type     = sanitize_key( $tax_page_type_raw );
 
-	$current_tax   = $_POST['current_tax'];
+	$current_tax   = isset( $_POST['current_tax'] ) ? (int) $_POST['current_tax'] : 0;
+
+	$is_kollektionen_page = function_exists( 'artifiche_is_kollektionen_taxonomy' )
+		? artifiche_is_kollektionen_taxonomy( $tax_page_type_raw )
+		: in_array( $tax_page_type, array( 'kollektionen' ), true );
 
 	$orderby       = array(
 
@@ -1096,27 +1101,44 @@ function tax_load_more() {
 
 	}
 
-	if ( in_array( $tax_page_type, array( 'kollektionen', 'Kollektionen' ), true ) ) {
+	if ( $is_kollektionen_page ) {
 
-		$ck = function_exists( 'artifiche_get_kollektionen_term_by_id' )
-			? artifiche_get_kollektionen_term_by_id( $current_tax, $tax_page_type )
-			: get_term_by( 'term_id', $current_tax, $tax_page_type );
+		$plakatzuweisungen = function_exists( 'artifiche_get_kollektionen_plakatzuweisungen_by_term_id' )
+			? artifiche_get_kollektionen_plakatzuweisungen_by_term_id( $current_tax )
+			: '';
 
-		$plakatzuweisungen = '';
-		if ( ! empty( $_POST['plakatzuweisungen'] ) ) {
-			$posted = sanitize_text_field( wp_unslash( $_POST['plakatzuweisungen'] ) );
-			if ( preg_match( '/^[0-9;]+$/', $posted ) ) {
-				$plakatzuweisungen = $posted;
+		if ( $plakatzuweisungen === '' ) {
+			$ck = function_exists( 'artifiche_get_kollektionen_term_by_id' )
+				? artifiche_get_kollektionen_term_by_id( $current_tax, $tax_page_type_raw )
+				: get_term_by( 'term_id', $current_tax, $tax_page_type_raw );
+
+			if ( ! ( $ck instanceof WP_Term ) ) {
+				$ck = get_term( $current_tax );
+				if ( is_wp_error( $ck ) || ! ( $ck instanceof WP_Term ) ) {
+					$ck = null;
+				}
+			}
+
+			if ( $ck instanceof WP_Term && function_exists( 'artifiche_get_kollektionen_plakatzuweisungen' ) ) {
+				$plakatzuweisungen = artifiche_get_kollektionen_plakatzuweisungen( $ck );
+			} elseif ( $ck instanceof WP_Term ) {
+				$plakatzuweisungen = get_field( 'plakatzuweisungen', $ck );
+				if ( empty( $plakatzuweisungen ) ) {
+					$plakatzuweisungen = get_field( 'plakatzuweisungen', $ck->taxonomy . '_' . $ck->term_id );
+				}
+				if ( empty( $plakatzuweisungen ) ) {
+					$plakatzuweisungen = get_term_meta( (int) $ck->term_id, 'plakatzuweisungen', true );
+				}
 			}
 		}
 
-		if ( $plakatzuweisungen === '' ) {
-			$plakatzuweisungen = function_exists( 'artifiche_get_kollektionen_plakatzuweisungen' )
-				? artifiche_get_kollektionen_plakatzuweisungen( $ck )
-				: ( ( $ck instanceof WP_Term ) ? get_field( 'plakatzuweisungen', $ck ) : '' );
+		if ( is_string( $plakatzuweisungen ) ) {
+			$plakatzuweisungen = str_replace( "\0", '', $plakatzuweisungen );
+		} else {
+			$plakatzuweisungen = '';
 		}
 
-		if ( $plakatzuweisungen != '' ) {
+		if ( $plakatzuweisungen !== '' ) {
 			$poster_array = array_values( array_filter( array_map( 'trim', explode( ';', $plakatzuweisungen ) ) ) );
 
 			if ( ! empty( $poster_array ) ) {
@@ -1205,6 +1227,9 @@ function tax_load_more() {
 	$sale_option = get_field( 'sale_option', 'option' );
 
 	$postslists   = get_posts( $args );
+	if ( null !== $kollektionen_batch && function_exists( 'artifiche_sort_posts_by_plakatnummer_order' ) ) {
+		$postslists = artifiche_sort_posts_by_plakatnummer_order( $postslists, $kollektionen_batch );
+	}
 
 if (!empty($postslists)) {
 

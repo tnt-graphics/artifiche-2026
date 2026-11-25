@@ -62,7 +62,11 @@
 <script src="<?php echo get_template_directory_uri() . '/js/de.js'; ?>"></script>
 <script src="<?php echo get_template_directory_uri() . '/js/fastClick.js'; ?>"></script>
 <script src="<?php echo get_template_directory_uri() . '/js/custom.js'; ?>"></script>
-<script src="<?php echo get_template_directory_uri() . '/js/admin.js'; ?>"></script>
+<?php
+$admin_js_path = get_template_directory() . '/js/admin.js';
+$admin_js_ver    = file_exists( $admin_js_path ) ? (string) filemtime( $admin_js_path ) : '1';
+?>
+<script src="<?php echo esc_url( get_template_directory_uri() . '/js/admin.js?ver=' . $admin_js_ver ); ?>"></script>
 <script>
 		var getLangCode = '<?php echo apply_filters( 'wpml_current_language', null ); ?>';
 if (getLangCode == 'en') {

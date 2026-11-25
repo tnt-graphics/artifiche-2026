@@ -439,8 +439,32 @@ function artifiche_is_kollektionen_taxonomy( $taxonomy ) {
  * Front end only: clone kollektionen ↔ Kollektionen so old code paths still resolve.
  * Never register the alias in admin — that creates a duplicate "collections" menu item.
  */
+function artifiche_is_wp_all_import_request() {
+	$page   = isset( $_REQUEST['page'] ) ? sanitize_key( wp_unslash( $_REQUEST['page'] ) ) : '';
+	$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+
+	if ( isset( $_REQUEST['import_id'] ) || isset( $_REQUEST['import_key'] ) ) {
+		return true;
+	}
+
+	if ( 0 === strpos( $page, 'pmxi' ) || 0 === strpos( $action, 'pmxi' ) ) {
+		return true;
+	}
+
+	return false;
+}
+
+function artifiche_is_kollektionen_ajax_request() {
+	if ( ! wp_doing_ajax() ) {
+		return false;
+	}
+	$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+	return in_array( $action, array( 'tax_load_more', 'artifiche_load_more' ), true );
+}
+
 function artifiche_kollektionen_register_taxonomy_alias() {
-	if ( is_admin() ) {
+	// admin-ajax runs with is_admin()===true; our front-end load-more still needs the alias + taxonomy queries.
+	if ( is_admin() && ! artifiche_is_wp_all_import_request() && ! artifiche_is_kollektionen_ajax_request() ) {
 		return;
 	}
 
@@ -924,7 +948,141 @@ function artifiche_get_kollektionen_plakatzuweisungen( $term ) {
 		do_action( 'wpml_switch_language', $current_lang );
 	}
 
+	$term_id = (int) $read_term->term_id;
+	if ( $term_id ) {
+		$value = get_term_meta( $term_id, 'plakatzuweisungen', true );
+		if ( is_string( $value ) && $value !== '' ) {
+			return str_replace( "\0", '', $value );
+		}
+	}
+
 	return '';
+}
+
+/**
+ * Read plakatzuweisungen from term meta (bypasses ACF/get_term in admin-ajax).
+ *
+ * @param int $term_id Kollektionen term ID.
+ * @return string Semicolon-separated plakatnummern.
+ */
+function artifiche_get_kollektionen_plakatzuweisungen_from_db( $term_id ) {
+	$term_id = (int) $term_id;
+	if ( ! $term_id ) {
+		return '';
+	}
+
+	global $wpdb;
+
+	$lookup_ids = array( $term_id );
+	if ( has_filter( 'wpml_object_id' ) ) {
+		$default_lang = apply_filters( 'wpml_default_language', 'de' );
+		foreach ( artifiche_get_kollektionen_taxonomies() as $tax_slug ) {
+			$source_id = (int) apply_filters( 'wpml_object_id', $term_id, $tax_slug, true, $default_lang );
+			if ( $source_id ) {
+				$lookup_ids[] = $source_id;
+			}
+		}
+	}
+
+	$lookup_ids = array_values( array_unique( array_filter( $lookup_ids ) ) );
+
+	// 1) Modern ACF / core term meta.
+	foreach ( $lookup_ids as $lookup_id ) {
+		$value = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT meta_value FROM {$wpdb->termmeta} WHERE term_id = %d AND meta_key = %s LIMIT 1",
+				$lookup_id,
+				'plakatzuweisungen'
+			)
+		);
+		if ( is_string( $value ) && $value !== '' ) {
+			return str_replace( "\0", '', $value );
+		}
+	}
+
+	// 2) Legacy ACF term storage kept values in wp_options as "{taxonomy}_{term_id}_plakatzuweisungen".
+	foreach ( $lookup_ids as $lookup_id ) {
+		foreach ( artifiche_get_kollektionen_taxonomies() as $tax_slug ) {
+			$value = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+					$tax_slug . '_' . $lookup_id . '_plakatzuweisungen'
+				)
+			);
+			if ( is_string( $value ) && $value !== '' ) {
+				return str_replace( "\0", '', $value );
+			}
+		}
+	}
+
+	return '';
+}
+
+/**
+ * Load plakatzuweisungen by term ID (works in admin-ajax where get_term/ACF can fail).
+ *
+ * @param int $term_id Kollektionen term ID.
+ * @return string Semicolon-separated plakatnummern.
+ */
+function artifiche_get_kollektionen_plakatzuweisungen_by_term_id( $term_id ) {
+	$term_id = (int) $term_id;
+	if ( ! $term_id ) {
+		return '';
+	}
+
+	// admin-ajax: ACF/get_term often fail; DB is the reliable source (same data as the page template).
+	if ( wp_doing_ajax() ) {
+		$value = artifiche_get_kollektionen_plakatzuweisungen_from_db( $term_id );
+		if ( $value !== '' ) {
+			return $value;
+		}
+	}
+
+	if ( function_exists( 'artifiche_get_kollektionen_term_by_id' ) ) {
+		$term = artifiche_get_kollektionen_term_by_id( $term_id );
+		if ( $term instanceof WP_Term ) {
+			$value = artifiche_get_kollektionen_plakatzuweisungen( $term );
+			if ( is_string( $value ) && $value !== '' ) {
+				return str_replace( "\0", '', $value );
+			}
+		}
+	}
+
+	return artifiche_get_kollektionen_plakatzuweisungen_from_db( $term_id );
+}
+
+/**
+ * Keep collection poster output in the imported plakatzuweisungen order.
+ *
+ * @param WP_Post[] $posts Product posts.
+ * @param string[]  $poster_numbers Ordered plakatnummer values.
+ * @return WP_Post[]
+ */
+function artifiche_sort_posts_by_plakatnummer_order( $posts, $poster_numbers ) {
+	if ( empty( $posts ) || empty( $poster_numbers ) ) {
+		return $posts;
+	}
+
+	$order = array_flip( array_map( 'strval', array_values( $poster_numbers ) ) );
+
+	usort(
+		$posts,
+		function ( $a, $b ) use ( $order ) {
+			$a_number = (string) get_post_meta( $a->ID, 'plakatnummer', true );
+			$b_number = (string) get_post_meta( $b->ID, 'plakatnummer', true );
+
+			$a_index = isset( $order[ $a_number ] ) ? $order[ $a_number ] : PHP_INT_MAX;
+			$b_index = isset( $order[ $b_number ] ) ? $order[ $b_number ] : PHP_INT_MAX;
+
+			if ( $a_index === $b_index ) {
+				return 0;
+			}
+
+			return ( $a_index < $b_index ) ? -1 : 1;
+		}
+	);
+
+	return $posts;
 }
 
 /**
